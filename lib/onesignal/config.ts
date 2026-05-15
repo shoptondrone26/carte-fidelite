@@ -2,6 +2,9 @@ export function isOneSignalClientEnabled(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID?.trim());
 }
 
+/** Nom d’env documenté pour activer les logs + panneau diagnostic push */
+export const PUSH_DEBUG_ENV = "NEXT_PUBLIC_PUSH_DEBUG";
+
 export function isOneSignalSendEnabled(): boolean {
   return (
     isOneSignalClientEnabled() &&

@@ -1,5 +1,6 @@
 "use client";
 
+import { pushDebugLog } from "@/lib/push-debug";
 import type { OneSignalWeb } from "@/types/onesignal";
 
 /**
@@ -38,11 +39,13 @@ export async function pollAndSyncPushSubscription(
     for (let i = 0; i < maxAttempts; i++) {
       const id = OneSignal.User.PushSubscription.id;
       if (id) {
+        pushDebugLog("push subscription id obtenu (poll)", id);
         await sync(id);
         return id;
       }
       await new Promise((r) => setTimeout(r, delayMs));
     }
+    pushDebugLog("poll subscription: aucun id après", maxAttempts, "tentatives");
     return null;
   });
   return result ?? null;

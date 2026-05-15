@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { syncPushSubscriptionAction } from "@/actions/push-preferences";
+import { pushDebugLog } from "@/lib/push-debug";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
 import {
   pollAndSyncPushSubscription,
@@ -24,7 +25,8 @@ export function PushSessionBridge() {
       };
       const onChange = () => {
         const id = OneSignal.User.PushSubscription.id;
-        if (id) void syncPushSubscriptionAction(id);
+        pushDebugLog("PushSubscription change, id=", id);
+        if (id) void syncPushSubscriptionAction(id).then((r) => pushDebugLog("sync après change", r));
       };
       sub.addEventListener?.("change", onChange);
       detachSubListenerRef.current = () =>
@@ -36,12 +38,16 @@ export function PushSessionBridge() {
     async function syncUser(userId: string) {
       await runOneSignalTask(async (OneSignal) => {
         if (linkedUserRef.current !== userId) {
+          pushDebugLog("OneSignal.login", userId);
           await OneSignal.login(userId);
           linkedUserRef.current = userId;
         }
-        await pollAndSyncPushSubscription((id) =>
-          syncPushSubscriptionAction(id),
-        );
+        const polled = await pollAndSyncPushSubscription(async (id) => {
+          const r = await syncPushSubscriptionAction(id);
+          pushDebugLog("sync Supabase (poll bridge)", r);
+          return r;
+        });
+        pushDebugLog("poll subscription id (bridge)", polled);
       });
     }
 
@@ -50,8 +56,12 @@ export function PushSessionBridge() {
       void supabase.auth.getUser().then(({ data }) => {
         if (data.user) {
           void runOneSignalTask(async () => {
-            await pollAndSyncPushSubscription((id) =>
-              syncPushSubscriptionAction(id),
+            await pollAndSyncPushSubscription(
+              async (id) => {
+                const r = await syncPushSubscriptionAction(id);
+                pushDebugLog("sync Supabase (visibility)", r);
+                return r;
+              },
               { maxAttempts: 15, delayMs: 200 },
             );
           });

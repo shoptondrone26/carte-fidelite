@@ -7,6 +7,7 @@ import {
   getOneSignalAppId,
   isOneSignalClientEnabled,
 } from "@/lib/onesignal/config";
+import { pushDebugLog } from "@/lib/push-debug";
 
 export function OneSignalInit() {
   const enabled = isOneSignalClientEnabled();
@@ -22,10 +23,14 @@ export function OneSignalInit() {
         allowLocalhostAsSecureOrigin:
           process.env.NODE_ENV === "development",
       });
+      pushDebugLog("OneSignal init terminé (appId length)", getOneSignalAppId().length);
       if ("serviceWorker" in navigator) {
         const existing = await navigator.serviceWorker.getRegistration("/");
         if (!existing) {
           await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+          pushDebugLog("Service Worker enregistré (/sw.js)");
+        } else {
+          pushDebugLog("Service Worker déjà enregistré");
         }
       }
     });
