@@ -8,6 +8,7 @@ import {
   syncPushSubscriptionAction,
 } from "@/actions/push-preferences";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
+import { pollAndSyncPushSubscription } from "@/lib/onesignal/subscription-sync";
 import { cn } from "@/lib/utils";
 
 type PushSettingsPanelProps = {
@@ -72,6 +73,12 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
               await OneSignal.User.PushSubscription.optIn();
               const subId = OneSignal.User.PushSubscription.id;
               if (subId) await syncPushSubscriptionAction(subId);
+              else {
+                await pollAndSyncPushSubscription(
+                  (id) => syncPushSubscriptionAction(id),
+                  { maxAttempts: 60, delayMs: 300 },
+                );
+              }
               resolve();
             } catch (e) {
               reject(e);

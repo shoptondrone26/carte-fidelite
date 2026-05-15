@@ -12,6 +12,8 @@ export type OneSignalWeb = {
       optedIn?: boolean;
       optIn: () => Promise<void>;
       optOut: () => Promise<void>;
+      addEventListener?: (event: "change", listener: () => void) => void;
+      removeEventListener?: (event: "change", listener: () => void) => void;
     };
   };
   Notifications: {
