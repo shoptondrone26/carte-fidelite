@@ -1,10 +1,19 @@
-/* Carte PWA — cache shell minimal uniquement (pas d’API / pas de données). */
-const VERSION = "carte-shell-v1";
+/* Carte PWA — OneSignal v16 + cache shell minimal (offline, manifest, icônes) */
+importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+
+const VERSION = "carte-shell-v2";
 const OFFLINE_URL = "/offline";
-const SHELL_PATHS = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192", "/icons/icon-512"];
+const SHELL_PATHS = [
+  OFFLINE_URL,
+  "/manifest.webmanifest",
+  "/icons/icon-192",
+  "/icons/icon-512",
+];
 
 function isShellPath(pathname) {
-  return SHELL_PATHS.some((p) => pathname === p || pathname.startsWith(p + "?"));
+  return SHELL_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "?"),
+  );
 }
 
 self.addEventListener("install", (event) => {

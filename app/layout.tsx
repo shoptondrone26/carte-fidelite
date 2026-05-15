@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
 
+import { OneSignalInit } from "@/components/notifications/onesignal-init";
 import { PwaClient } from "@/components/pwa/pwa-client";
 import { AppToaster } from "@/components/ui/app-toaster";
 
@@ -91,6 +92,7 @@ export default function RootLayout({
       <body className="min-h-dvh bg-background text-foreground">
         {children}
         <AppToaster />
+        <OneSignalInit />
         <PwaClient />
       </body>
     </html>

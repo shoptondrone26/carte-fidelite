@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardLive } from "@/components/client/dashboard-live";
+import { PushSettingsPanel } from "@/components/notifications/push-settings-panel";
 import { signOut } from "@/actions/auth";
 import { getIsAdmin } from "@/lib/auth/roles";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
@@ -31,7 +32,7 @@ export default async function DashboardPage() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, phone, created_at, total_unlocks")
+    .select("id, email, full_name, phone, created_at, total_unlocks, push_enabled")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -100,11 +101,14 @@ export default async function DashboardPage() {
       ) : null}
 
       {profile ? (
-        <DashboardLive
-          userId={user.id}
-          displayName={displayName}
-          initial={loyaltyInitial}
-        />
+        <>
+          <PushSettingsPanel initialEnabled={profile.push_enabled ?? true} />
+          <DashboardLive
+            userId={user.id}
+            displayName={displayName}
+            initial={loyaltyInitial}
+          />
+        </>
       ) : (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Profil introuvable. Le trigger sur{" "}

@@ -47,6 +47,7 @@ export async function acceptBookingAction(
   revalidatePath("/admin");
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
+  revalidatePath("/admin/reservations");
 
   return { ok: true };
 }
@@ -88,6 +89,7 @@ export async function refuseBookingAction(
   revalidatePath("/admin");
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
+  revalidatePath("/admin/reservations");
 
   return { ok: true };
 }

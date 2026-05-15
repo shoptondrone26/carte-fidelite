@@ -44,23 +44,6 @@ export function PwaClient() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (process.env.NODE_ENV !== "production") return;
-    if (!("serviceWorker" in navigator)) return;
-
-    const register = () => {
-      navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
-        .catch(() => {
-          /* ignore registration errors */
-        });
-    };
-
-    if (document.readyState === "complete") register();
-    else window.addEventListener("load", register, { once: true });
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     if (dismissed || isStandalone() || !isMobileUa()) return;
 
     const onBip = (e: Event) => {
