@@ -137,6 +137,94 @@
   }
 }
 
+@layer utilities {
+  .premium-ambient {
+    animation: premium-ambient 16s ease-in-out infinite alternate;
+  }
+
+  .premium-float {
+    animation: premium-float 9s ease-in-out infinite;
+  }
+
+  .premium-shimmer {
+    animation: premium-shimmer 8s ease-in-out infinite;
+    background-size: 220% 100%;
+  }
+
+  .premium-sheen {
+    animation: premium-sheen 7s ease-in-out infinite;
+  }
+
+  .premium-progress {
+    animation: premium-progress 1.6s ease-out both;
+  }
+}
+
+@keyframes premium-ambient {
+  0% {
+    opacity: 0.58;
+    transform: translate3d(-1.5%, -1%, 0) scale(0.98);
+  }
+  100% {
+    opacity: 0.92;
+    transform: translate3d(1.5%, 1%, 0) scale(1.04);
+  }
+}
+
+@keyframes premium-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(0.5deg);
+  }
+}
+
+@keyframes premium-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes premium-sheen {
+  0%,
+  45% {
+    transform: translateX(-130%) rotate(16deg);
+    opacity: 0;
+  }
+  55% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(130%) rotate(16deg);
+    opacity: 0;
+  }
+}
+
+@keyframes premium-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-ambient,
+  .premium-float,
+  .premium-shimmer,
+  .premium-sheen,
+  .premium-progress {
+    animation: none;
+  }
+}
+
 @media (display-mode: standalone) {
   html {
     -webkit-tap-highlight-color: transparent;
