@@ -28,6 +28,12 @@ function pushDebugLogsEnabled(): boolean {
   try {
     if (
       typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("pushDebug") === "1"
+    ) {
+      return true;
+    }
+    if (
+      typeof window !== "undefined" &&
       window.localStorage?.getItem("carte:push-debug") === "1"
     ) {
       return true;

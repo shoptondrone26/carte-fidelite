@@ -39,11 +39,17 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
+  function dashboardNextParam() {
+    return request.nextUrl.searchParams.get("pushDebug") === "1"
+      ? "/dashboard?pushDebug=1"
+      : "/dashboard";
+  }
+
   if (path.startsWith("/dashboard")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("next", "/dashboard");
+      url.searchParams.set("next", dashboardNextParam());
       return redirectWithSession(NextResponse.redirect(url));
     }
     if (isAdmin) {
@@ -70,7 +76,9 @@ export async function middleware(request: NextRequest) {
   if (path === "/login" && user) {
     const url = request.nextUrl.clone();
     url.pathname = isAdmin ? "/admin" : "/dashboard";
-    url.search = "";
+    const keepPushDebug =
+      !isAdmin && request.nextUrl.searchParams.get("pushDebug") === "1";
+    url.search = keepPushDebug ? "?pushDebug=1" : "";
     return redirectWithSession(NextResponse.redirect(url));
   }
 

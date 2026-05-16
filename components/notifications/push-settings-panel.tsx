@@ -80,24 +80,25 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
 
   const refreshDebugSnap = useCallback(() => {
     if (!debugUi) return;
+    const baseSnap: DebugSnap = {
+      appIdPresent: hasPublicOneSignalAppId(),
+      appIdLen: publicOneSignalAppIdLength(),
+      sdkScriptLikely:
+        typeof document !== "undefined" &&
+        Boolean(
+          document.querySelector('script[src*="OneSignalSDK.page"]'),
+        ),
+      oneSignalGlobal: typeof window !== "undefined" && !!window.OneSignal,
+      permission:
+        typeof window !== "undefined" && "Notification" in window
+          ? Notification.permission
+          : "no-notification-api",
+      pushSubId: null,
+      onesignalUserId: null,
+      optedIn: null,
+    };
+    setDebugSnap(baseSnap);
     if (!sdkReady) {
-      setDebugSnap({
-        appIdPresent: hasPublicOneSignalAppId(),
-        appIdLen: publicOneSignalAppIdLength(),
-        sdkScriptLikely:
-          typeof document !== "undefined" &&
-          Boolean(
-            document.querySelector('script[src*="OneSignalSDK.page"]'),
-          ),
-        oneSignalGlobal: typeof window !== "undefined" && !!window.OneSignal,
-        permission:
-          typeof window !== "undefined" && "Notification" in window
-            ? Notification.permission
-            : "—",
-        pushSubId: null,
-        onesignalUserId: null,
-        optedIn: null,
-      });
       return;
     }
     void runOneSignalTask(async (OneSignal) => {
@@ -105,8 +106,7 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
         onesignalId?: string | null;
       };
       setDebugSnap({
-        appIdPresent: hasPublicOneSignalAppId(),
-        appIdLen: publicOneSignalAppIdLength(),
+        ...baseSnap,
         sdkScriptLikely:
           typeof document !== "undefined" &&
           Boolean(
@@ -305,7 +305,7 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
           type="button"
           disabled={pending || enabled}
           onClick={onEnable}
-          className="min-h-12 min-w-[10rem] rounded-full bg-amber-500/20 px-4 py-3 text-xs font-semibold text-amber-50 ring-1 ring-amber-400/30 disabled:opacity-40 active:scale-[0.98]"
+          className="min-h-12 min-w-40 rounded-full bg-amber-500/20 px-4 py-3 text-xs font-semibold text-amber-50 ring-1 ring-amber-400/30 disabled:opacity-40 active:scale-[0.98]"
         >
           Activer les notifications
         </button>

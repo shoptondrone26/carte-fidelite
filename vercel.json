@@ -1,12 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/push-outbox",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/booking-reminders",
-      "schedule": "*/15 * * * *"
-    }
-  ]
-}
+{}
