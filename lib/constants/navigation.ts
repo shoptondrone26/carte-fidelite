@@ -1,10 +1,10 @@
-import { CreditCard, Gift, Home, User } from "lucide-react";
+import { Crown, Gem, Home, UserRound } from "lucide-react";
 
 import type { NavItem } from "@/types";
 
 export const MOBILE_NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "Accueil", icon: Home },
-  { href: "/carte", label: "Carte", icon: CreditCard },
-  { href: "/offres", label: "Offres", icon: Gift },
-  { href: "/dashboard", label: "Compte", icon: User },
+  { href: "/carte", label: "Avantages", icon: Gem },
+  { href: "/offres", label: "Privilèges", icon: Crown },
+  { href: "/dashboard", label: "Espace privé", icon: UserRound },
 ] as const;

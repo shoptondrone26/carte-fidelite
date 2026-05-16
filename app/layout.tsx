@@ -33,16 +33,16 @@ const splashHref = new URL("/splash/apple", metadataBase).href;
 export const metadata: Metadata = {
   metadataBase,
   title: {
-    default: "Carte",
-    template: "%s · Carte",
+    default: "ShopTonDrone Privé",
+    template: "%s · ShopTonDrone Privé",
   },
   description:
-    "Carte de fidélité premium, pensée pour le mobile — avantages, offres et expérience soignée.",
-  applicationName: "Carte",
+    "Un espace privé premium pour vos avantages, privilèges et réservations membres.",
+  applicationName: "ShopTonDrone Privé",
   alternates: { canonical: "/" },
   appleWebApp: {
     capable: true,
-    title: "Carte",
+    title: "ShopTonDrone Privé",
     statusBarStyle: "black-translucent",
   },
   formatDetection: {

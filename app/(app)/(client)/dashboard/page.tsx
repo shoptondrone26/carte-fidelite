@@ -75,10 +75,10 @@ export default async function DashboardPage() {
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Mon espace
+            Espace privé
           </h1>
           <p className="text-xs text-muted-foreground">
-            Votre carte premium et votre progression.
+            Votre statut membre et vos accès privilégiés.
           </p>
         </div>
         <form action={signOut}>
