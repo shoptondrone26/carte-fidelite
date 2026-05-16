@@ -72,7 +72,7 @@ export function AdminCalendarView({
               {parisDateLabel(dateKey)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Créneaux 20 min · 10h–20h
+              Créneaux 20 min · 10h–00h
             </p>
           </div>
         </div>

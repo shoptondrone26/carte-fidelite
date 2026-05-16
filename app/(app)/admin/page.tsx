@@ -20,5 +20,5 @@ export default async function AdminDashboardPage() {
   const stats = await fetchAdminStats(supabase, pending.length);
   const topClients = await fetchAdminTopClients(supabase);
 
-  return <AdminHomeLive initial={{ stats, topClients }} />;
+  return <AdminHomeLive initial={{ stats, topClients, pending }} />;
 }

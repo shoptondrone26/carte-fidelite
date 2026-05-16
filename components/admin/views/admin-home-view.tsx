@@ -2,14 +2,24 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { StatCard } from "@/components/admin/admin-ui";
-import type { AdminClientRow, AdminStats } from "@/components/admin/admin-types";
+import type {
+  AdminBookingRow,
+  AdminClientRow,
+  AdminStats,
+} from "@/components/admin/admin-types";
+import { AdminPendingRequestsSection } from "@/components/admin/views/admin-bookings-view";
 import { ADMIN_NAV_ITEMS } from "@/lib/admin/navigation";
 type AdminHomeViewProps = {
   stats: AdminStats;
   topClients: AdminClientRow[];
+  pending: AdminBookingRow[];
 };
 
-export function AdminHomeView({ stats, topClients }: AdminHomeViewProps) {
+export function AdminHomeView({
+  stats,
+  topClients,
+  pending,
+}: AdminHomeViewProps) {
   const shortcuts = ADMIN_NAV_ITEMS.filter((n) => n.href !== "/admin");
 
   return (
@@ -28,6 +38,8 @@ export function AdminHomeView({ stats, topClients }: AdminHomeViewProps) {
           accent="rose"
         />
       </section>
+
+      <AdminPendingRequestsSection pending={pending} />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">

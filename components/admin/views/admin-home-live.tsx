@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { AdminClientRow, AdminStats } from "@/components/admin/admin-types";
+import type {
+  AdminBookingRow,
+  AdminClientRow,
+  AdminStats,
+} from "@/components/admin/admin-types";
 import { AdminHomeView } from "@/components/admin/views/admin-home-view";
 import { useAdminRealtimeRefetch } from "@/hooks/use-admin-realtime-refetch";
 import {
@@ -17,6 +21,7 @@ type AdminHomeLiveProps = {
   initial: {
     stats: AdminStats;
     topClients: AdminClientRow[];
+    pending: AdminBookingRow[];
   };
 };
 
@@ -34,10 +39,16 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
       fetchAdminStats(supabase, pending.length),
       fetchAdminTopClients(supabase),
     ]);
-    setData({ stats, topClients });
+    setData({ stats, topClients, pending });
   }, []);
 
   useAdminRealtimeRefetch(refetch, ADMIN_HOME_SYNC, 400, "admin:home");
 
-  return <AdminHomeView stats={data.stats} topClients={data.topClients} />;
+  return (
+    <AdminHomeView
+      stats={data.stats}
+      topClients={data.topClients}
+      pending={data.pending}
+    />
+  );
 }

@@ -54,7 +54,7 @@ export function BookingFlow({ onBooked, onCancel }: BookingFlowProps) {
       <div className="space-y-1">
         <p className="text-sm font-semibold text-white">Choisir une date</p>
         <p className="text-xs text-muted-foreground">
-          Créneaux de 20 minutes · 10h–20h
+          Créneaux de 20 minutes · 10h–00h
         </p>
       </div>
       <BookingDatePicker

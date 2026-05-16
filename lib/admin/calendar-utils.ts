@@ -3,6 +3,7 @@ import { parisDateKey } from "@/lib/booking/format";
 import {
   generateSlotStartsForDate,
   getBookableDateKeys,
+  slotDurationMs,
 } from "@/lib/booking/slots";
 
 export function calendarDayRange(dateKey: string): {
@@ -12,7 +13,7 @@ export function calendarDayRange(dateKey: string): {
   const slots = generateSlotStartsForDate(dateKey);
   const start = slots[0] ?? new Date(`${dateKey}T08:00:00.000Z`);
   const last = slots[slots.length - 1] ?? start;
-  const end = new Date(last.getTime() + 20 * 60_000 + 1);
+  const end = new Date(last.getTime() + slotDurationMs() + 1);
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
