@@ -236,13 +236,18 @@ export async function fetchAdminTopClients(supabase: SupabaseClient) {
 }
 
 export async function fetchAdminGlobalHistory(supabase: SupabaseClient) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("history")
     .select(
-      "id, subject_id, event_type, created_at, profiles (full_name, email)",
+      "id, subject_id, event_type, created_at, profiles:profiles!history_subject_id_fkey (full_name, email)",
     )
     .order("created_at", { ascending: false })
     .limit(80);
+
+  if (error) {
+    console.error("fetchAdminGlobalHistory", error.message);
+    return [];
+  }
 
   type Raw = AdminHistoryEntry & {
     profiles:

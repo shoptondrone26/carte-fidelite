@@ -5,6 +5,7 @@ export const historyEventLabelFr: Record<string, string> = {
   booking_refused: "Réservation refusée",
   booking_requested: "Demande envoyée",
   booking_cancelled: "Demande annulée",
+  client_reset: "Client réinitialisé",
 };
 
 export function formatHistoryEventType(eventType: string): string {
