@@ -15,18 +15,17 @@ export function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setLoading(true);
 
     const supabase = createClient();
+    const normalizedEmail = email.trim().toLowerCase();
     const { data, error: signError } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -36,20 +35,28 @@ export function SignupForm() {
       },
     });
 
-    setLoading(false);
-
     if (signError) {
+      setLoading(false);
       setError(signError.message);
       return;
     }
 
     if (data.user && !data.session) {
-      setInfo(
-        "Compte créé. Vérifiez votre boîte mail pour confirmer l’adresse, puis connectez-vous.",
-      );
-      return;
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (loginError) {
+        setLoading(false);
+        setError(
+          "La confirmation email est encore active côté Supabase Auth. Désactivez-la pour permettre la connexion immédiate.",
+        );
+        return;
+      }
     }
 
+    setLoading(false);
     router.refresh();
     router.replace("/dashboard");
   }
@@ -155,12 +162,6 @@ export function SignupForm() {
             {error}
           </p>
         ) : null}
-        {info ? (
-          <p className="text-center text-sm text-amber-100/90" role="status">
-            {info}
-          </p>
-        ) : null}
-
         <button
           type="submit"
           disabled={loading}
