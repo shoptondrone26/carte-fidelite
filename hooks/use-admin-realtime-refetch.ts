@@ -36,6 +36,12 @@ export function useAdminRealtimeRefetch(
       }, debounceMs);
     };
 
+    const onVisible = () => {
+      if (document.visibilityState === "visible") schedule();
+    };
+
+    const onOnline = () => schedule();
+
     channel = supabase.channel(channelKey);
     for (const sub of subscriptions) {
       channel = channel.on(
@@ -44,10 +50,17 @@ export function useAdminRealtimeRefetch(
         schedule,
       );
     }
-    channel.subscribe();
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") schedule();
+    });
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
 
     return () => {
       if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
       void supabase.removeChannel(channel);
     };
   }, [channelKey, debounceMs, subsKey]);

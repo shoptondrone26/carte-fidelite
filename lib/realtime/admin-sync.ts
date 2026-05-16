@@ -1,6 +1,6 @@
 export type AdminRealtimeSubscription = {
   table: "bookings" | "history" | "accounting_transactions" | "profiles";
-  event: "INSERT" | "UPDATE" | "*";
+  event: "INSERT" | "UPDATE" | "DELETE" | "*";
 };
 
 export const ADMIN_BOOKINGS_SYNC: AdminRealtimeSubscription[] = [
@@ -10,19 +10,24 @@ export const ADMIN_BOOKINGS_SYNC: AdminRealtimeSubscription[] = [
 
 export const ADMIN_COMPTA_SYNC: AdminRealtimeSubscription[] = [
   { table: "accounting_transactions", event: "INSERT" },
+  { table: "history", event: "INSERT" },
+  { table: "profiles", event: "UPDATE" },
 ];
 
 export const ADMIN_CLIENTS_SYNC: AdminRealtimeSubscription[] = [
   { table: "accounting_transactions", event: "INSERT" },
+  { table: "profiles", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
   { table: "history", event: "INSERT" },
 ];
 
 export const ADMIN_HISTORY_SYNC: AdminRealtimeSubscription[] = [
   { table: "history", event: "INSERT" },
+  { table: "profiles", event: "UPDATE" },
 ];
 
 export const ADMIN_HOME_SYNC: AdminRealtimeSubscription[] = [
   ...ADMIN_BOOKINGS_SYNC,
+  { table: "profiles", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
 ];

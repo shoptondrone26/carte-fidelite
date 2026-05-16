@@ -186,7 +186,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <StatusMetric label="Visites" value="2 / 3" />
+            <StatusMetric label="Suivi" value="Live" />
             <StatusMetric label="Badge" value="Privé" />
           </div>
 
