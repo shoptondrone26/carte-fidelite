@@ -2,13 +2,15 @@
 
 /**
  * Diagnostic push : UI + logs sans exposer de secrets.
- * Active avec NEXT_PUBLIC_PUSH_DEBUG=1, ?pushDebug=1 ou localStorage carte:push-debug=1
+ * En production, seul NEXT_PUBLIC_PUSH_DEBUG=1 peut l'activer au déploiement.
+ * En développement, ?pushDebug=1 et localStorage carte:push-debug=1 restent pratiques.
  */
 export function isPushDebugUiEnabled(): boolean {
   if (typeof window === "undefined") {
     return process.env.NEXT_PUBLIC_PUSH_DEBUG === "1";
   }
   if (process.env.NEXT_PUBLIC_PUSH_DEBUG === "1") return true;
+  if (process.env.NODE_ENV !== "development") return false;
   try {
     if (new URLSearchParams(window.location.search).get("pushDebug") === "1") {
       return true;
@@ -24,24 +26,7 @@ export function isPushDebugUiEnabled(): boolean {
 
 function pushDebugLogsEnabled(): boolean {
   if (process.env.NODE_ENV === "development") return true;
-  if (process.env.NEXT_PUBLIC_PUSH_DEBUG === "1") return true;
-  try {
-    if (
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("pushDebug") === "1"
-    ) {
-      return true;
-    }
-    if (
-      typeof window !== "undefined" &&
-      window.localStorage?.getItem("carte:push-debug") === "1"
-    ) {
-      return true;
-    }
-  } catch {
-    /* ignore */
-  }
-  return false;
+  return process.env.NEXT_PUBLIC_PUSH_DEBUG === "1";
 }
 
 export function pushDebugLog(...args: unknown[]): void {

@@ -90,40 +90,22 @@ export async function cancelPendingBookingAction(
     return { ok: false, error: "Vous devez être connecté." };
   }
 
-  const { data: existing, error: fetchError } = await supabase
-    .from("bookings")
-    .select("id, status, profile_id")
-    .eq("id", bookingId)
-    .maybeSingle();
-
-  if (fetchError || !existing) {
-    return { ok: false, error: "Demande introuvable." };
-  }
-  if (existing.profile_id !== user.id) {
-    return { ok: false, error: "Accès refusé." };
-  }
-  if (existing.status !== "pending") {
-    return { ok: false, error: "Cette demande ne peut plus être annulée." };
-  }
-
-  const { error } = await supabase
-    .from("bookings")
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
-    .eq("id", bookingId)
-    .eq("status", "pending");
+  const { error } = await supabase.rpc("cancel_pending_booking", {
+    p_booking_id: bookingId,
+  });
 
   if (error) {
+    if (error.message.includes("not_found")) {
+      return { ok: false, error: "Demande introuvable." };
+    }
+    if (error.message.includes("forbidden")) {
+      return { ok: false, error: "Accès refusé." };
+    }
+    if (error.message.includes("invalid_state")) {
+      return { ok: false, error: "Cette demande ne peut plus être annulée." };
+    }
     return { ok: false, error: error.message };
   }
-
-  await supabase.from("history").insert({
-    subject_id: user.id,
-    actor_id: user.id,
-    event_type: "booking_cancelled",
-    entity_type: "booking",
-    entity_id: bookingId,
-    payload: { booking_id: bookingId },
-  });
 
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");

@@ -325,10 +325,9 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
 
       {debugUi ? (
         <p className="mt-2 text-[10px] text-muted-foreground">
-          Debug : <code className="rounded bg-black/30 px-1">?pushDebug=1</code>{" "}
-          ou localStorage{" "}
-          <code className="rounded bg-black/30 px-1">carte:push-debug=1</code> ou{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_PUSH_DEBUG=1</code>
+          Debug : actif via{" "}
+          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_PUSH_DEBUG=1</code>.
+          Les raccourcis URL/localStorage sont réservés au développement.
         </p>
       ) : null}
     </section>

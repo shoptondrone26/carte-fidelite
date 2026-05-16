@@ -40,7 +40,10 @@ export async function middleware(request: NextRequest) {
   }
 
   function dashboardNextParam() {
-    return request.nextUrl.searchParams.get("pushDebug") === "1"
+    const allowPushDebug =
+      process.env.NODE_ENV === "development" ||
+      process.env.NEXT_PUBLIC_PUSH_DEBUG === "1";
+    return allowPushDebug && request.nextUrl.searchParams.get("pushDebug") === "1"
       ? "/dashboard?pushDebug=1"
       : "/dashboard";
   }
@@ -76,8 +79,13 @@ export async function middleware(request: NextRequest) {
   if (path === "/login" && user) {
     const url = request.nextUrl.clone();
     url.pathname = isAdmin ? "/admin" : "/dashboard";
+    const allowPushDebug =
+      process.env.NODE_ENV === "development" ||
+      process.env.NEXT_PUBLIC_PUSH_DEBUG === "1";
     const keepPushDebug =
-      !isAdmin && request.nextUrl.searchParams.get("pushDebug") === "1";
+      allowPushDebug &&
+      !isAdmin &&
+      request.nextUrl.searchParams.get("pushDebug") === "1";
     url.search = keepPushDebug ? "?pushDebug=1" : "";
     return redirectWithSession(NextResponse.redirect(url));
   }

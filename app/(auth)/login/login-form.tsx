@@ -8,6 +8,13 @@ import { createClient } from "@/lib/supabase/client";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+function safeNextPath(value: string): string {
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return "/dashboard";
+  }
+  return value;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,7 +44,7 @@ export function LoginForm() {
     }
 
     router.refresh();
-    router.replace(next.startsWith("/") ? next : "/dashboard");
+    router.replace(safeNextPath(next));
   }
 
   return (
