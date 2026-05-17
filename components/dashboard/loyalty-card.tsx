@@ -26,6 +26,24 @@ function vipBadgeClass(level: VipLevel) {
   }
 }
 
+function loyaltyProgressMessage(
+  cycle: CycleProgress,
+  freeAvailable: number,
+): string {
+  if (freeAvailable > 0) {
+    return "Avantage prêt à être utilisé";
+  }
+  if (cycle.justCompletedFree) {
+    return "Prochain avantage disponible";
+  }
+
+  const remaining = Math.max(cycle.max - cycle.current, 0);
+  if (remaining <= 1) {
+    return "Encore 1 déblocage avant votre prochain avantage";
+  }
+  return `Encore ${remaining} déblocages avant votre prochain avantage`;
+}
+
 export function LoyaltyCard({
   userId,
   displayName,
@@ -37,6 +55,7 @@ export function LoyaltyCard({
 }: LoyaltyCardProps) {
   const vipLabel = vipLevelLabelFr[vipLevel];
   const memberNumber = `STP-${userId.slice(0, 2).toUpperCase()}••••${userId.slice(-4).toUpperCase()}`;
+  const progressMessage = loyaltyProgressMessage(cycle, freeAvailable);
   const rarity =
     vipLevel === "or"
       ? "Membre signature"
@@ -139,11 +158,16 @@ export function LoyaltyCard({
         </dl>
 
         <div className="space-y-2.5 rounded-[1.35rem] border border-white/10 bg-black/25 px-4 py-3">
-          <div className="flex items-center justify-between text-xs font-medium text-zinc-400">
-            <span className="uppercase tracking-[0.2em] text-zinc-500">
-              Progression fidélité
-            </span>
-            <span className="tabular-nums text-amber-100">{cycle.label}</span>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold leading-snug text-amber-50">
+              {progressMessage}
+            </p>
+            <div className="flex items-center justify-between text-xs font-medium text-zinc-400">
+              <span className="uppercase tracking-[0.2em] text-zinc-500">
+                Progression fidélité
+              </span>
+              <span className="tabular-nums text-amber-100">{cycle.label}</span>
+            </div>
           </div>
           <div
             className="h-2 overflow-hidden rounded-full bg-black/50 ring-1 ring-inset ring-white/10"
