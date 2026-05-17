@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,8 +11,6 @@ import { cn } from "@/lib/utils";
 
 export function SignupForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const referralCode = searchParams.get("ref")?.trim().toUpperCase() ?? "";
   const [fullName, setFullName] = useState("");
   const [snap, setSnap] = useState("");
   const [email, setEmail] = useState("");
@@ -34,7 +32,6 @@ export function SignupForm() {
         data: {
           full_name: fullName.trim(),
           snap: snap.trim(),
-          referral_code: referralCode || undefined,
         },
       },
     });
@@ -102,12 +99,6 @@ export function SignupForm() {
             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring/50 transition-shadow focus-visible:ring-3"
           />
         </div>
-        {referralCode ? (
-          <div className="rounded-2xl border border-amber-200/20 bg-amber-200/8 px-4 py-3 text-sm text-amber-100">
-            Code parrainage appliqué :{" "}
-            <span className="font-semibold">{referralCode}</span>
-          </div>
-        ) : null}
         <div className="space-y-2">
           <label
             htmlFor="snap"

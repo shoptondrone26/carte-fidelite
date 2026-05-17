@@ -36,9 +36,6 @@ export type AdminClientCardData = {
   email: string | null;
   snap: string | null;
   total_unlocks: number | null;
-  points_balance?: number | null;
-  referral_code?: string | null;
-  referred_by?: string | null;
   free_used_count: number;
   /** Données comptables — admin uniquement */
   total_spent_eur: number;
@@ -136,19 +133,8 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
 
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <Stat label="Déblocages" value={String(total)} />
-          <Stat label="Points" value={String(client.points_balance ?? 0)} accent="amber" />
+          <Stat label="Cycle" value={cycle.label} />
         </dl>
-
-        {client.referral_code ? (
-          <div className="rounded-2xl border border-amber-200/15 bg-amber-200/7 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-200/70">
-              Parrainage
-            </p>
-            <p className="mt-1 text-sm text-amber-100">
-              Code {client.referral_code}
-            </p>
-          </div>
-        ) : null}
 
         <dl className="grid grid-cols-3 gap-2 text-sm">
           <Stat label="Gagnés" value={String(freeEarned)} accent="amber" />

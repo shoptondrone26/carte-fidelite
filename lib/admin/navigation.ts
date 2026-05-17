@@ -2,7 +2,6 @@ import {
   BarChart3,
   Calculator,
   CalendarDays,
-  Gift,
   History,
   LayoutDashboard,
   Settings,
@@ -40,13 +39,6 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     shortLabel: "Analyse",
     description: "Usage, rétention et privilèges",
     icon: BarChart3,
-  },
-  {
-    href: "/admin/cadeaux",
-    label: "Cadeaux à traiter",
-    shortLabel: "Cadeaux",
-    description: "Boutique, points et parrainage",
-    icon: Gift,
   },
   {
     href: "/admin/compta",

@@ -4,10 +4,7 @@ export type AdminRealtimeSubscription = {
     | "history"
     | "accounting_transactions"
     | "profiles"
-    | "analytics_events"
-    | "gift_catalog"
-    | "gift_requests"
-    | "points_ledger";
+    | "analytics_events";
   event: "INSERT" | "UPDATE" | "DELETE" | "*";
 };
 
@@ -27,8 +24,6 @@ export const ADMIN_CLIENTS_SYNC: AdminRealtimeSubscription[] = [
   { table: "profiles", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
   { table: "history", event: "INSERT" },
-  { table: "points_ledger", event: "INSERT" },
-  { table: "gift_requests", event: "*" },
 ];
 
 export const ADMIN_HISTORY_SYNC: AdminRealtimeSubscription[] = [
@@ -47,12 +42,5 @@ export const ADMIN_ANALYSE_SYNC: AdminRealtimeSubscription[] = [
   { table: "bookings", event: "*" },
   { table: "history", event: "INSERT" },
   { table: "profiles", event: "INSERT" },
-  { table: "profiles", event: "UPDATE" },
-];
-
-export const ADMIN_GIFTS_SYNC: AdminRealtimeSubscription[] = [
-  { table: "gift_requests", event: "*" },
-  { table: "gift_catalog", event: "*" },
-  { table: "points_ledger", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
 ];
