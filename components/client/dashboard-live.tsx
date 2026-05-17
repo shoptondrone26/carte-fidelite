@@ -71,8 +71,18 @@ export function DashboardLive({
   const activeBooking = isActiveClientBooking(booking, now.getTime())
     ? booking
     : null;
+  const hasValidatedUnlock =
+    activeBooking?.status === "accepted" &&
+    loyalty.historyItems.some(
+      (item) =>
+        item.event_type === "unlock_validated" &&
+        new Date(item.created_at).getTime() >=
+          new Date(activeBooking.created_at).getTime(),
+    );
   const canCancel =
-    activeBooking && canClientCancelBooking(activeBooking, now.getTime());
+    activeBooking &&
+    !hasValidatedUnlock &&
+    canClientCancelBooking(activeBooking, now.getTime());
 
   useEffect(() => {
     if (!activeBooking) return;
@@ -132,6 +142,7 @@ export function DashboardLive({
         booking={activeBooking}
         canCancel={Boolean(canCancel)}
         cancelPending={cancelPending}
+        validatedUnlock={Boolean(hasValidatedUnlock)}
         nowMs={now.getTime()}
         onCancel={onCancelBooking}
       />
@@ -166,7 +177,14 @@ export function DashboardLive({
   );
 }
 
-function bookingMessage(booking: ClientPendingBooking): string {
+function bookingMessage(
+  booking: ClientPendingBooking,
+  validatedUnlock: boolean,
+): string {
+  if (validatedUnlock) {
+    return "Votre déblocage a été validé. Votre progression membre a été mise à jour.";
+  }
+
   switch (booking.status) {
     case "pending":
       return "Votre demande est envoyée. L’équipe confirme le créneau dès que possible.";
@@ -196,7 +214,10 @@ function countdownLabel(startsAt: string, nowMs: number): string {
   return `${minutes} min avant le rendez-vous`;
 }
 
-function bookingTimeline(booking: ClientPendingBooking) {
+function bookingTimeline(
+  booking: ClientPendingBooking,
+  validatedUnlock: boolean,
+) {
   return [
     {
       label: "Demande envoyée",
@@ -215,8 +236,8 @@ function bookingTimeline(booking: ClientPendingBooking) {
     },
     {
       label: "Déblocage validé",
-      active: false,
-      done: false,
+      active: validatedUnlock,
+      done: validatedUnlock,
     },
   ];
 }
@@ -225,12 +246,14 @@ function ReservationStatusCard({
   booking,
   canCancel,
   cancelPending,
+  validatedUnlock,
   nowMs,
   onCancel,
 }: {
   booking: ClientPendingBooking | null;
   canCancel: boolean;
   cancelPending: boolean;
+  validatedUnlock: boolean;
   nowMs: number;
   onCancel: () => void;
 }) {
@@ -266,9 +289,11 @@ function ReservationStatusCard({
   }
 
   const blockedAcceptedCancellation =
-    booking.status === "accepted" && !canCancel;
+    booking.status === "accepted" && !canCancel && !validatedUnlock;
   const statusTone =
-    booking.status === "accepted"
+    validatedUnlock
+      ? "border-amber-200/45 bg-linear-to-r from-emerald-400/18 to-amber-300/14 text-amber-50"
+      : booking.status === "accepted"
       ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-50"
       : booking.status === "pending"
         ? "border-amber-300/35 bg-amber-400/15 text-amber-50"
@@ -307,7 +332,9 @@ function ReservationStatusCard({
               statusTone,
             )}
           >
-            {clientBookingStatusLabelFr(booking.status)}
+            {validatedUnlock
+              ? "Déblocage validé"
+              : clientBookingStatusLabelFr(booking.status)}
           </span>
         </div>
 
@@ -320,13 +347,13 @@ function ReservationStatusCard({
               {countdownLabel(booking.starts_at, nowMs)}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-              {bookingMessage(booking)}
+              {bookingMessage(booking, validatedUnlock)}
             </p>
           </div>
         </div>
 
         <ol className="grid grid-cols-4 gap-2">
-          {bookingTimeline(booking).map((step) => (
+          {bookingTimeline(booking, validatedUnlock).map((step) => (
             <li key={step.label} className="relative flex flex-col gap-2">
               <span
                 className={cn(
@@ -359,7 +386,7 @@ function ReservationStatusCard({
           </p>
         ) : null}
 
-        {canCancel ? (
+        {canCancel && !validatedUnlock ? (
           <button
             type="button"
             disabled={cancelPending}

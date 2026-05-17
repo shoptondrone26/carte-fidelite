@@ -41,7 +41,7 @@ function eventPresentation(eventType: string) {
       return {
         icon: Gift,
         title:
-          eventType === "free_used" ? "Gratuit utilisé" : "Gratuit débloqué",
+          eventType === "free_used" ? "Gratuit utilisé" : "Déblocage validé",
         detail: "Progression membre mise à jour",
         tone: "border-amber-300/25 bg-amber-400/10 text-amber-100",
       };
