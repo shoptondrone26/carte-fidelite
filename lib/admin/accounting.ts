@@ -65,7 +65,12 @@ export type AccountingAnalytics = {
   topClientsChart: TopClientChartPoint[];
 };
 
-type AmountRow = { amount_eur: number; created_at: string; profile_id: string };
+type AmountRow = {
+  amount_eur: number;
+  action_type: string;
+  created_at: string;
+  profile_id: string;
+};
 
 type DayBucket = { revenue: number; unlocks: number };
 
@@ -88,7 +93,7 @@ function groupByLocalDay(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalDateKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += 1;
+    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
     map.set(key, cur);
   }
   return map;
@@ -100,7 +105,7 @@ function groupByLocalMonth(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalMonthKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += 1;
+    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
     map.set(key, cur);
   }
   return map;
@@ -147,12 +152,22 @@ export function buildAccountingAnalytics(
 
   const dailyLast7 = buildLast7DaySlots().map(({ dateKey, label }) => {
     const v = byDay.get(dateKey) ?? { revenue: 0, unlocks: 0 };
-    return { dateKey, label, revenue: v.revenue, unlocks: v.unlocks };
+    return {
+      dateKey,
+      label,
+      revenue: v.revenue,
+      unlocks: Math.max(0, v.unlocks),
+    };
   });
 
   const monthlyLast6 = buildLast6MonthSlots().map(({ monthKey, label }) => {
     const v = byMonth.get(monthKey) ?? { revenue: 0, unlocks: 0 };
-    return { monthKey, label, revenue: v.revenue, unlocks: v.unlocks };
+    return {
+      monthKey,
+      label,
+      revenue: v.revenue,
+      unlocks: Math.max(0, v.unlocks),
+    };
   });
 
   const topClientsChart = topClients.slice(0, 8).map((c) => {
@@ -193,6 +208,13 @@ function sumAmounts(rows: { amount_eur: number }[]): number {
   return rows.reduce((acc, row) => acc + row.amount_eur, 0);
 }
 
+function netPaidUnlocks(rows: { amount_eur: number }[]): number {
+  return rows.reduce(
+    (acc, row) => acc + (row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0),
+    0,
+  );
+}
+
 function filterSince(rows: AmountRow[], sinceIso: string): AmountRow[] {
   const since = Date.parse(sinceIso);
   return rows.filter((r) => Date.parse(r.created_at) >= since);
@@ -211,7 +233,7 @@ async function fetchAllTransactions(
 ): Promise<AmountRow[]> {
   const { data, error } = await supabase
     .from("accounting_transactions")
-    .select("amount_eur, created_at, profile_id")
+    .select("amount_eur, action_type, created_at, profile_id")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -238,7 +260,7 @@ export async function fetchAccountingSummary(
   const monthRows = filterSince(rows, monthStart);
 
   const revenueTotal = sumAmounts(rows);
-  const paidUnlocksCount = rows.length;
+  const paidUnlocksCount = Math.max(0, netPaidUnlocks(rows));
 
   return {
     revenueTotal,
@@ -246,7 +268,7 @@ export async function fetchAccountingSummary(
     revenueWeek: sumAmounts(weekRows),
     revenueMonth: sumAmounts(monthRows),
     paidUnlocksCount,
-    paidUnlocksToday: todayRows.length,
+    paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
     freeUsedCount: freeUsedResult.count ?? 0,
     avgBasket:
       paidUnlocksCount > 0 ? Math.round(revenueTotal / paidUnlocksCount) : 0,
@@ -315,7 +337,7 @@ export async function fetchClientSpendStats(
 
   return {
     totalSpentEur: sumAmounts(rows),
-    paidUnlocksCount: rows.length,
+    paidUnlocksCount: Math.max(0, netPaidUnlocks(rows)),
     freeUsedCount,
   };
 }
@@ -337,8 +359,12 @@ export async function fetchSpendByClient(
       freeUsedCount: 0,
     };
     current.totalSpentEur += row.amount_eur;
-    current.paidUnlocksCount += 1;
+    current.paidUnlocksCount +=
+      row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
     map[row.profile_id] = current;
+  }
+  for (const stats of Object.values(map)) {
+    stats.paidUnlocksCount = Math.max(0, stats.paidUnlocksCount);
   }
   return map;
 }
@@ -357,11 +383,16 @@ export async function fetchTopClientsByRevenue(
   for (const row of txRows ?? []) {
     const cur = totals.get(row.profile_id) ?? { sum: 0, count: 0 };
     cur.sum += row.amount_eur;
-    cur.count += 1;
+    cur.count += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
     totals.set(row.profile_id, cur);
   }
 
   const ranked = [...totals.entries()]
+    .map(([profileId, stats]) => [
+      profileId,
+      { sum: stats.sum, count: Math.max(0, stats.count) },
+    ] as const)
+    .filter(([, stats]) => stats.sum > 0 || stats.count > 0)
     .sort((a, b) => b[1].sum - a[1].sum)
     .slice(0, limit);
 

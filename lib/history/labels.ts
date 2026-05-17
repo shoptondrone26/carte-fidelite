@@ -1,5 +1,6 @@
 export const historyEventLabelFr: Record<string, string> = {
   unlock_validated: "Déblocage validé",
+  unlock_cancelled: "Déblocage annulé",
   free_used: "Gratuit utilisé",
   booking_accepted: "Réservation acceptée",
   booking_refused: "Réservation refusée",

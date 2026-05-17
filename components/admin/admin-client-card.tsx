@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { markFreeUsedAction } from "@/actions/admin-free";
-import { validateUnlockAction } from "@/actions/admin-unlock";
+import {
+  undoLastUnlockAction,
+  validateUnlockAction,
+} from "@/actions/admin-unlock";
 import { ValidateUnlockAmountDialog } from "@/components/admin/validate-unlock-amount-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { formatEur, type UnlockAmountEur } from "@/lib/admin/accounting";
@@ -48,6 +51,7 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [amountOpen, setAmountOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
   const total = client.total_unlocks ?? 0;
   const vip = getVipLevel(total);
   const cycle = getCycleProgress(total);
@@ -78,6 +82,21 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
       if (res.ok) {
         toast.success("Gratuit utilisé", {
           description: `${displayName} : gratuit marqué comme consommé.`,
+        });
+        router.refresh();
+      } else {
+        toast.error(res.error ?? "Erreur");
+      }
+    });
+  }
+
+  function onConfirmUndo() {
+    start(async () => {
+      const res = await undoLastUnlockAction(client.id);
+      if (res.ok) {
+        setUndoOpen(false);
+        toast.success("Dernier déblocage annulé", {
+          description: `${displayName} : -1 tampon · ${formatEur(res.amountEur)} corrigé.`,
         });
         router.refresh();
       } else {
@@ -187,6 +206,17 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
               Gratuit utilisé
             </button>
           ) : null}
+          <button
+            type="button"
+            disabled={busy || total <= 0}
+            onClick={() => setUndoOpen(true)}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-12 w-full justify-center border-rose-500/35 text-rose-100 hover:bg-rose-500/10 disabled:opacity-45",
+            )}
+          >
+            Annuler le dernier déblocage
+          </button>
         </div>
 
         {history.length > 0 ? (
@@ -223,7 +253,106 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
         busy={busy}
         onConfirm={onConfirmAmount}
       />
+      <UndoLastUnlockDialog
+        open={undoOpen}
+        onOpenChange={setUndoOpen}
+        clientName={displayName}
+        busy={busy}
+        onConfirm={onConfirmUndo}
+      />
     </article>
+  );
+}
+
+function UndoLastUnlockDialog({
+  open,
+  onOpenChange,
+  clientName,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientName: string;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-200 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="undo-unlock-title"
+      onClick={() => !busy && onOpenChange(false)}
+    >
+      <div
+        className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+
+        <div className="space-y-4">
+          <div>
+            <p
+              id="undo-unlock-title"
+              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-rose-200/90"
+            >
+              Annulation admin
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-white">
+              Annuler le dernier déblocage ?
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              Cette action concerne{" "}
+              <span className="font-medium text-white">{clientName}</span>.
+              Elle garde les preuves et ajoute une contre-écriture auditée.
+            </p>
+          </div>
+
+          <ul className="space-y-2 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3 text-sm text-rose-50/90">
+            <li>-1 déblocage sur la carte fidélité</li>
+            <li>Correction comptable négative du dernier montant</li>
+            <li>Trace historique ajoutée : Déblocage annulé</li>
+          </ul>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-12 justify-center",
+              )}
+            >
+              Fermer
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirm}
+              className={cn(
+                buttonVariants({ variant: "default", size: "lg" }),
+                "h-12 justify-center bg-rose-500 text-white hover:bg-rose-400",
+              )}
+            >
+              Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

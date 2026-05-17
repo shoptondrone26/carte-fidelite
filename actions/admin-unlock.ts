@@ -15,6 +15,10 @@ export type ValidateUnlockResult =
   | { ok: true }
   | { ok: false; error: string };
 
+export type UndoLastUnlockResult =
+  | { ok: true; amountEur: number }
+  | { ok: false; error: string };
+
 export async function validateUnlockAction(
   rawProfileId: unknown,
   rawAmountEur?: unknown,
@@ -84,4 +88,54 @@ export async function validateUnlockAction(
   revalidatePath("/deblocage");
 
   return { ok: true };
+}
+
+export async function undoLastUnlockAction(
+  rawProfileId: unknown,
+): Promise<UndoLastUnlockResult> {
+  const parsedProfile = profileIdSchema.safeParse(rawProfileId);
+  if (!parsedProfile.success) {
+    return { ok: false, error: "Client invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await getIsAdmin(supabase, user.id))) {
+    return { ok: false, error: "Accès réservé aux administrateurs." };
+  }
+
+  const { data, error } = await supabase.rpc("undo_last_unlock", {
+    p_profile_id: parsedProfile.data,
+  });
+
+  if (error) {
+    if (error.message.includes("forbidden")) {
+      return { ok: false, error: "Action non autorisée." };
+    }
+    if (error.message.includes("not_found")) {
+      return { ok: false, error: "Client introuvable." };
+    }
+    if (error.message.includes("nothing_to_undo")) {
+      return {
+        ok: false,
+        error: "Aucun déblocage validé ne peut être annulé pour ce client.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const amountEur = Number(row?.amount_eur ?? 0);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/clients");
+  revalidatePath("/admin/compta");
+  revalidatePath("/admin/history");
+  revalidatePath("/dashboard");
+  revalidatePath("/deblocage");
+
+  return { ok: true, amountEur };
 }
