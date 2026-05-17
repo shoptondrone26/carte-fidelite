@@ -6,7 +6,6 @@ import { Clock3, Crown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
-import { FreeRewardsPanel } from "@/components/dashboard/free-rewards-panel";
 import { LoyaltyCard } from "@/components/dashboard/loyalty-card";
 import { RecentHistory } from "@/components/dashboard/recent-history";
 import { buttonVariants } from "@/components/ui/button";
@@ -67,8 +66,7 @@ export function DashboardLive({
   const vipLevel = getVipLevel(totalUnlocks);
   const cycle = getCycleProgress(totalUnlocks);
   const freeEarned = getFreeEarned(totalUnlocks);
-  const freeUsed = loyalty.freeUsedCount;
-  const freeAvailable = getFreeAvailable(freeEarned, freeUsed);
+  const freeAvailable = getFreeAvailable(freeEarned, loyalty.freeUsedCount);
   const activeBooking = isActiveClientBooking(booking, now.getTime())
     ? booking
     : null;
@@ -164,13 +162,6 @@ export function DashboardLive({
         cycle={cycle}
         freeEarned={freeEarned}
         freeAvailable={freeAvailable}
-      />
-      <FreeRewardsPanel
-        freeAvailable={freeAvailable}
-        freeEarned={freeEarned}
-        freeUsed={freeUsed}
-        freeUsedHistory={loyalty.freeUsedHistory}
-        cycle={cycle}
       />
       <RecentHistory items={loyalty.historyItems} />
       <Link
