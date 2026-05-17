@@ -29,6 +29,13 @@ function eventPresentation(eventType: string) {
         detail: "Choisissez un autre créneau",
         tone: "border-rose-300/25 bg-rose-400/10 text-rose-100",
       };
+    case "booking_cancelled":
+      return {
+        icon: X,
+        title: "Réservation annulée",
+        detail: "Créneau libéré dans votre activité membre",
+        tone: "border-zinc-300/20 bg-zinc-400/10 text-zinc-200",
+      };
     case "free_used":
     case "unlock_validated":
       return {

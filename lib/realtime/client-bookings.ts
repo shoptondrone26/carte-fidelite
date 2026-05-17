@@ -40,8 +40,13 @@ export function pendingFromBookingRow(
 
 export function isActiveClientBooking(
   booking: ClientPendingBooking | null,
+  nowMs = Date.now(),
 ): booking is ClientPendingBooking {
-  return booking?.status === "pending" || booking?.status === "accepted";
+  if (!booking) return false;
+  if (booking.status !== "pending" && booking.status !== "accepted") {
+    return false;
+  }
+  return new Date(booking.starts_at).getTime() > nowMs;
 }
 
 export function canClientCancelBooking(

@@ -24,6 +24,7 @@ import {
 import {
   canClientCancelBooking,
   clientBookingStatusLabelFr,
+  isActiveClientBooking,
   type ClientPendingBooking,
 } from "@/lib/realtime/client-bookings";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
@@ -67,14 +68,17 @@ export function DashboardLive({
   const freeEarned = getFreeEarned(totalUnlocks);
   const freeUsed = loyalty.freeUsedCount;
   const freeAvailable = getFreeAvailable(freeEarned, freeUsed);
+  const activeBooking = isActiveClientBooking(booking, now.getTime())
+    ? booking
+    : null;
   const canCancel =
-    booking && canClientCancelBooking(booking, now.getTime());
+    activeBooking && canClientCancelBooking(activeBooking, now.getTime());
 
   useEffect(() => {
-    if (!booking) return;
+    if (!activeBooking) return;
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(id);
-  }, [booking?.id, booking?.starts_at]);
+  }, [activeBooking?.id, activeBooking?.starts_at]);
 
   function onCancelBooking() {
     if (!booking) return;
@@ -125,7 +129,7 @@ export function DashboardLive({
       </section>
 
       <ReservationStatusCard
-        booking={booking}
+        booking={activeBooking}
         canCancel={Boolean(canCancel)}
         cancelPending={cancelPending}
         nowMs={now.getTime()}
@@ -232,18 +236,27 @@ function ReservationStatusCard({
 }) {
   if (!booking) {
     return (
-      <section className="rounded-2xl border border-dashed border-white/10 bg-card/25 p-5">
-        <p className="text-sm font-semibold text-foreground">
-          Aucune réservation en cours
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Réservez un créneau de déblocage depuis votre espace membre.
-        </p>
+      <section className="relative overflow-hidden rounded-3xl border border-dashed border-amber-300/20 bg-linear-to-br from-card/35 via-card/20 to-amber-950/10 p-5 shadow-lg shadow-black/15">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-amber-300/8 blur-3xl"
+        />
+        <div className="relative">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-200/70">
+            Accès prioritaire
+          </p>
+          <p className="mt-2 text-base font-semibold text-foreground">
+            Aucune réservation active pour le moment.
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            Réservez un nouveau créneau prioritaire quand vous êtes prêt.
+          </p>
+        </div>
         <Link
           href="/deblocage"
           className={cn(
             buttonVariants({ variant: "default", size: "lg" }),
-            "mt-4 h-12 w-full justify-center",
+            "relative mt-4 h-12 w-full justify-center shadow-lg shadow-amber-950/20",
           )}
         >
           Réserver une place
