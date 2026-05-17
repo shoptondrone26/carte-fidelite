@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { DashboardLive } from "@/components/client/dashboard-live";
 import { signOut } from "@/actions/auth";
 import { getIsAdmin } from "@/lib/auth/roles";
+import { fetchClientPointsSnapshot } from "@/lib/gifts/data";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
@@ -91,6 +92,8 @@ export default async function DashboardPage() {
     .eq("subject_id", user.id)
     .eq("event_type", "free_used");
 
+  const pointsInitial = await fetchClientPointsSnapshot(supabase, user.id);
+
   const displayName =
     profile?.full_name?.trim() ||
     profile?.email?.trim() ||
@@ -139,6 +142,7 @@ export default async function DashboardPage() {
           userId={user.id}
           displayName={displayName}
           initial={loyaltyInitial}
+          pointsInitial={pointsInitial}
           initialBooking={
             booking
               ? {

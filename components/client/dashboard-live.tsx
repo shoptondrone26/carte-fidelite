@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
 import { FreeRewardsPanel } from "@/components/dashboard/free-rewards-panel";
+import { GiftShopPanel } from "@/components/client/gift-shop-panel";
 import { LoyaltyCard } from "@/components/dashboard/loyalty-card";
 import { RecentHistory } from "@/components/dashboard/recent-history";
 import { buttonVariants } from "@/components/ui/button";
@@ -21,6 +22,8 @@ import {
   getCycleProgress,
   getVipLevel,
 } from "@/lib/loyalty/vip";
+import type { ClientPointsSnapshot } from "@/lib/gifts/types";
+import { formatPoints } from "@/lib/gifts/labels";
 import {
   canClientCancelBooking,
   clientBookingStatusLabelFr,
@@ -35,6 +38,7 @@ type DashboardLiveProps = {
   userId: string;
   displayName: string;
   initial: ClientLoyaltySnapshot;
+  pointsInitial: ClientPointsSnapshot;
   initialBooking: ClientPendingBooking | null;
 };
 
@@ -42,8 +46,10 @@ export function DashboardLive({
   userId,
   displayName,
   initial,
+  pointsInitial,
   initialBooking,
 }: DashboardLiveProps) {
+  const [activeTab, setActiveTab] = useState<"card" | "shop" | "settings">("card");
   const loyalty = useClientLoyaltyRealtime(userId, initial);
   const { pending: booking, setPending: setBooking } = useClientBookingsRealtime(
     userId,
@@ -114,6 +120,13 @@ export function DashboardLive({
 
   return (
     <div className="flex flex-col gap-6">
+      <ClientPrivateTabs active={activeTab} onChange={setActiveTab} />
+      {activeTab === "shop" ? (
+        <GiftShopPanel userId={userId} initial={pointsInitial} />
+      ) : activeTab === "settings" ? (
+        <ClientSettingsPlaceholder />
+      ) : (
+        <>
       <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-linear-to-br from-zinc-950 via-zinc-900 to-black p-5 shadow-xl shadow-black/40">
         <div
           aria-hidden
@@ -143,6 +156,14 @@ export function DashboardLive({
               <Crown className="size-4" aria-hidden />
               Accès prioritaire activé
             </span>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
+              Points boutique
+            </p>
+            <p className="mt-1 text-lg font-semibold text-amber-100">
+              {formatPoints(pointsInitial.pointsBalance)} points
+            </p>
           </div>
         </div>
       </section>
@@ -182,7 +203,77 @@ export function DashboardLive({
       >
         Retour à l&apos;accueil
       </Link>
+        </>
+      )}
     </div>
+  );
+}
+
+function ClientPrivateTabs({
+  active,
+  onChange,
+}: {
+  active: "card" | "shop" | "settings";
+  onChange: (tab: "card" | "shop" | "settings") => void;
+}) {
+  const tabs = [
+    { id: "card", label: "Carte" },
+    { id: "shop", label: "Boutique" },
+    { id: "settings", label: "Réglages" },
+  ] as const;
+
+  return (
+    <div className="sticky top-2 z-20 rounded-full border border-amber-100/10 bg-black/55 p-1 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+      <div className="grid grid-cols-3 gap-1">
+        {tabs.map((tab) => {
+          const selected = active === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onChange(tab.id)}
+              className={cn(
+                "relative rounded-full px-3 py-2.5 text-xs font-semibold transition duration-500 active:scale-[0.98]",
+                selected
+                  ? "bg-amber-300/18 text-amber-50 shadow-[0_0_24px_rgba(251,191,36,0.16)]"
+                  : "text-zinc-500 hover:text-zinc-200",
+              )}
+            >
+              {selected ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-4 top-0 h-px bg-linear-to-r from-transparent via-amber-100/80 to-transparent"
+                />
+              ) : null}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ClientSettingsPlaceholder() {
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-linear-to-br from-zinc-950 via-black to-amber-950/15 p-6 shadow-xl shadow-black/30">
+      <div
+        aria-hidden
+        className="premium-ambient pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-300/10 blur-3xl"
+      />
+      <div className="relative space-y-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/70">
+          Réglages membre
+        </p>
+        <h2 className="text-2xl font-semibold tracking-tight text-white">
+          Bientôt disponible
+        </h2>
+        <p className="text-sm leading-relaxed text-zinc-400">
+          Un futur espace privé pour vos préférences, notifications et paramètres
+          membre.
+        </p>
+      </div>
+    </section>
   );
 }
 

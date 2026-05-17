@@ -23,6 +23,9 @@ export type AdminClientRow = {
   email: string | null;
   snap: string | null;
   total_unlocks: number | null;
+  points_balance?: number | null;
+  referral_code?: string | null;
+  referred_by?: string | null;
   created_at: string;
 };
 

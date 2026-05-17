@@ -6,6 +6,11 @@ export const historyEventLabelFr: Record<string, string> = {
   booking_refused: "Réservation refusée",
   booking_requested: "Demande envoyée",
   booking_cancelled: "Demande annulée",
+  gift_requested: "Cadeau demandé",
+  gift_accepted: "Cadeau accepté",
+  gift_refused: "Cadeau refusé",
+  gift_sent: "Cadeau envoyé",
+  gift_cancelled: "Cadeau annulé",
   client_reset: "Client réinitialisé",
 };
 

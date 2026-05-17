@@ -228,7 +228,7 @@ export async function fetchAdminCalendarBookings(
 export async function fetchAdminClients(supabase: SupabaseClient) {
   const { data: addressBookRaw } = await supabase
     .from("profiles")
-    .select("id, full_name, email, snap, total_unlocks, created_at")
+    .select("id, full_name, email, snap, total_unlocks, points_balance, referral_code, referred_by, created_at")
     .order("full_name", { ascending: true });
 
   const { data: historyRaw } = await supabase
@@ -256,6 +256,9 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
       email: c.email,
       snap: c.snap,
       total_unlocks: c.total_unlocks,
+      points_balance: c.points_balance ?? 0,
+      referral_code: c.referral_code ?? null,
+      referred_by: c.referred_by ?? null,
       free_used_count: freeUsed,
       total_spent_eur: spend?.totalSpentEur ?? 0,
       paid_unlocks_count: spend?.paidUnlocksCount ?? 0,
