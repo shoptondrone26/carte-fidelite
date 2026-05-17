@@ -49,6 +49,39 @@ export function AdminPendingRequestsSection({
     }
   }
 
+  function slotRelativeLabel(startsAt: string): string {
+    const starts = new Date(startsAt);
+    const now = new Date();
+    const diffMinutes = Math.round((starts.getTime() - now.getTime()) / 60_000);
+    const sameDay =
+      starts.getFullYear() === now.getFullYear() &&
+      starts.getMonth() === now.getMonth() &&
+      starts.getDate() === now.getDate();
+
+    if (diffMinutes < 0) {
+      return `En retard de ${Math.abs(diffMinutes)} min`;
+    }
+    if (diffMinutes < 60) {
+      return `Dans ${diffMinutes} min`;
+    }
+    if (diffMinutes < 120) {
+      return "Dans 1h";
+    }
+    if (sameDay) {
+      return `Aujourd’hui à ${starts.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+    return starts.toLocaleString("fr-FR", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold tracking-tight">
@@ -74,6 +107,9 @@ export function AdminPendingRequestsSection({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Créneau : {formatSlotDateTime(b.starts_at)}
+                  </p>
+                  <p className="mt-1 inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-100">
+                    {slotRelativeLabel(b.starts_at)}
                   </p>
                   {b.profiles?.snap ? (
                     <p className="text-xs text-muted-foreground">
@@ -130,7 +166,7 @@ export function AdminPendingRequestsSection({
                     carte client après le passage.
                   </p>
                   <Link
-                    href="/admin/clients"
+                    href={`/admin/clients?client=${b.profile_id}`}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "lg" }),
                       "h-12 w-full justify-center border-emerald-500/35 text-emerald-100 hover:bg-emerald-500/10",

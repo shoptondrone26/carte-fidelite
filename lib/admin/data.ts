@@ -151,6 +151,36 @@ export async function fetchAdminBookings(supabase: SupabaseClient) {
     .gt("starts_at", nowIso)
     .order("starts_at", { ascending: true });
 
+  const upcomingAccepted =
+    (upcomingAcceptedRaw as BookingQueryRow[] | null) ?? [];
+  const acceptedProfileIds = [
+    ...new Set(upcomingAccepted.map((booking) => booking.profile_id)),
+  ];
+  const { data: validatedUnlocksRaw } =
+    acceptedProfileIds.length > 0
+      ? await supabase
+          .from("history")
+          .select("subject_id, created_at")
+          .eq("event_type", "unlock_validated")
+          .in("subject_id", acceptedProfileIds)
+          .order("created_at", { ascending: false })
+      : { data: [] };
+
+  const validatedUnlocksByClient = new Map<string, number[]>();
+  for (const row of
+    (validatedUnlocksRaw as Pick<HistoryRow, "subject_id" | "created_at">[] | null) ??
+    []) {
+    const timestamps = validatedUnlocksByClient.get(row.subject_id) ?? [];
+    timestamps.push(new Date(row.created_at).getTime());
+    validatedUnlocksByClient.set(row.subject_id, timestamps);
+  }
+
+  const acceptedStillToProcess = upcomingAccepted.filter((booking) => {
+    const unlocks = validatedUnlocksByClient.get(booking.profile_id) ?? [];
+    const bookingCreatedAt = new Date(booking.created_at).getTime();
+    return !unlocks.some((validatedAt) => validatedAt >= bookingCreatedAt);
+  });
+
   const { data: recentRaw } = await supabase
     .from("bookings")
     .select(bookingSelect)
@@ -160,8 +190,7 @@ export async function fetchAdminBookings(supabase: SupabaseClient) {
 
   const pending = [
     ...((pendingRaw as BookingQueryRow[] | null)?.map(mapBooking) ?? []),
-    ...((upcomingAcceptedRaw as BookingQueryRow[] | null)?.map(mapBooking) ??
-      []),
+    ...acceptedStillToProcess.map(mapBooking),
   ].sort(
     (a, b) =>
       new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),

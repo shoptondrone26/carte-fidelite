@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   AdminClientCard,
   type AdminClientCardData,
   type AdminHistorySnippet,
 } from "@/components/admin/admin-client-card";
+import { cn } from "@/lib/utils";
 
 type AdminClientsViewProps = {
   addressBook: AdminClientCardData[];
@@ -17,6 +19,8 @@ export function AdminClientsView({
   addressBook,
   historyByClient,
 }: AdminClientsViewProps) {
+  const searchParams = useSearchParams();
+  const focusedClientId = searchParams.get("client");
   const [search, setSearch] = useState("");
   const normalizedSearch = search.trim().toLowerCase();
   const filteredClients = useMemo(() => {
@@ -27,6 +31,17 @@ export function AdminClientsView({
         .some((value) => value!.toLowerCase().includes(normalizedSearch)),
     );
   }, [addressBook, normalizedSearch]);
+
+  useEffect(() => {
+    if (!focusedClientId) return;
+    setSearch("");
+    const id = window.setTimeout(() => {
+      document
+        .getElementById(`admin-client-${focusedClientId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [focusedClientId, addressBook]);
 
   return (
     <div className="flex flex-col gap-4 pb-4">
@@ -89,7 +104,16 @@ export function AdminClientsView({
       ) : (
         <ul className="flex flex-col gap-4">
           {filteredClients.map((c) => (
-            <li key={c.id}>
+            <li
+              key={c.id}
+              id={`admin-client-${c.id}`}
+              className={cn(
+                "scroll-mt-24 rounded-3xl transition duration-700",
+                focusedClientId === c.id
+                  ? "ring-2 ring-amber-300/50 ring-offset-2 ring-offset-background"
+                  : "",
+              )}
+            >
               <AdminClientCard
                 client={c}
                 history={historyByClient[c.id] ?? []}
