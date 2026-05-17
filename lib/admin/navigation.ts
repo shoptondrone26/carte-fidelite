@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Calculator,
   CalendarDays,
   History,
@@ -31,6 +32,13 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     shortLabel: "Clients",
     description: "Fidélité et déblocages",
     icon: Users,
+  },
+  {
+    href: "/admin/analyse",
+    label: "Analyse",
+    shortLabel: "Analyse",
+    description: "Usage, rétention et privilèges",
+    icon: BarChart3,
   },
   {
     href: "/admin/compta",

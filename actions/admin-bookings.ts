@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { bookingIdSchema } from "@/schemas/bookings";
+import { trackServerAnalyticsEvent } from "@/lib/analytics/server";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,6 +49,9 @@ export async function acceptBookingAction(
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
   revalidatePath("/admin/reservations");
+  await trackServerAnalyticsEvent("booking_accepted", {
+    booking_id: parsed.data,
+  });
 
   return { ok: true };
 }
@@ -90,6 +94,9 @@ export async function refuseBookingAction(
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
   revalidatePath("/admin/reservations");
+  await trackServerAnalyticsEvent("booking_refused", {
+    booking_id: parsed.data,
+  });
 
   return { ok: true };
 }

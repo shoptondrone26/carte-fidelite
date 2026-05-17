@@ -1,42 +1,22 @@
+"use client";
+
 import {
-  CalendarDays,
-  Crown,
-  Diamond,
   Gem,
   LockKeyhole,
   Sparkles,
 } from "lucide-react";
 
-const vipPrivileges = [
-  {
-    title: "Drop membre privé",
-    label: "Accès limité",
-    description: "Des avantages rares proposés en priorité aux membres actifs.",
-    icon: Diamond,
-  },
-  {
-    title: "Expérience privée",
-    label: "Réservé membres",
-    description: "Un accès pensé pour prolonger l’univers ShopTonDrone Privé.",
-    icon: Crown,
-  },
-  {
-    title: "Réservation VIP",
-    label: "Prioritaire",
-    description: "Une expérience rapide, fluide et privilégiée.",
-    icon: CalendarDays,
-  },
-];
-
-const limitedRewards = [
-  "Avantage exclusif",
-  "Disponible pour une durée limitée",
-  "Récompense spéciale",
-];
+import {
+  PrivilegesAnalytics,
+  trackPrivilegeOpened,
+  trackPrivilegeUsed,
+} from "@/components/analytics/privileges-analytics";
+import { limitedRewards, vipPrivileges } from "@/lib/analytics/privileges";
 
 export default function OffresPage() {
   return (
     <main className="relative mx-auto flex w-full max-w-lg flex-1 flex-col gap-8 overflow-hidden px-5 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <PrivilegesAnalytics />
       <div
         aria-hidden
         className="premium-ambient pointer-events-none absolute inset-x-4 top-12 h-56 rounded-full bg-amber-300/18 blur-3xl"
@@ -100,6 +80,7 @@ export default function OffresPage() {
             return (
               <li
                 key={privilege.title}
+                onClick={() => trackPrivilegeOpened(privilege.title)}
                 className="group relative overflow-hidden rounded-[1.5rem] border border-amber-200/15 bg-linear-to-br from-white/[0.07] via-white/2.5 to-amber-300/4 p-4 shadow-xl shadow-black/25 backdrop-blur-xl transition duration-700 active:scale-[0.985] sm:hover:-translate-y-1 sm:hover:border-amber-200/35"
               >
                 <div
@@ -141,6 +122,7 @@ export default function OffresPage() {
           {limitedRewards.map((reward) => (
             <li
               key={reward}
+              onClick={() => trackPrivilegeUsed(reward)}
               className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200/10 bg-amber-200/4.5 px-4 py-3 text-sm text-amber-50"
             >
               <span>{reward}</span>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import { buttonVariants } from "@/components/ui/button";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 import { cn } from "@/lib/utils";
 
 function safeNextPath(value: string): string {
@@ -44,6 +45,7 @@ export function LoginForm() {
     }
 
     router.refresh();
+    await trackAnalyticsEvent("login", {}, { dedupeKey: "login" });
     router.replace(safeNextPath(next));
   }
 

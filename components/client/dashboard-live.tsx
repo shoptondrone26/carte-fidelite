@@ -27,6 +27,7 @@ import {
   isActiveClientBooking,
   type ClientPendingBooking,
 } from "@/lib/realtime/client-bookings";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +90,14 @@ export function DashboardLive({
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(id);
   }, [activeBooking?.id, activeBooking?.starts_at]);
+
+  useEffect(() => {
+    void trackAnalyticsEvent(
+      "dashboard_open",
+      { path: "/dashboard" },
+      { dedupeKey: "dashboard_open" },
+    );
+  }, []);
 
   function onCancelBooking() {
     if (!booking) return;

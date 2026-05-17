@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { trackServerAnalyticsEvent } from "@/lib/analytics/server";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { loyaltyPushKindsAfterUnlock } from "@/lib/onesignal/loyalty-push";
 import { enqueuePush } from "@/lib/onesignal/send";
@@ -86,6 +87,11 @@ export async function validateUnlockAction(
   revalidatePath("/admin/compta");
   revalidatePath("/dashboard");
   revalidatePath("/deblocage");
+  await trackServerAnalyticsEvent("unlock_validated", {
+    profile_id: parsedProfile.data,
+    amount_eur: parsedAmount.data,
+    next_total: nextTotal,
+  });
 
   return { ok: true };
 }

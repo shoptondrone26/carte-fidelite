@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import { buttonVariants } from "@/components/ui/button";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 import { cn } from "@/lib/utils";
 
 export function SignupForm() {
@@ -58,6 +59,7 @@ export function SignupForm() {
 
     setLoading(false);
     router.refresh();
+    await trackAnalyticsEvent("signup", {}, { dedupeKey: "signup" });
     router.replace("/dashboard");
   }
 

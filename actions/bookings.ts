@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { bookingIdSchema, slotStartSchema } from "@/schemas/bookings";
+import { trackServerAnalyticsEvent } from "@/lib/analytics/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type BookingActionResult =
@@ -66,6 +67,10 @@ export async function createPendingBookingAction(
   revalidatePath("/dashboard");
   revalidatePath("/admin");
   revalidatePath("/admin/reservations");
+  await trackServerAnalyticsEvent("booking_created", {
+    booking_id: row.id as string,
+    starts_at: row.starts_at as string,
+  });
 
   return {
     ok: true,
