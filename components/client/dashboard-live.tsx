@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { Clock3, Crown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
@@ -70,10 +71,10 @@ export function DashboardLive({
     booking && canClientCancelBooking(booking, now.getTime());
 
   useEffect(() => {
-    if (booking?.status !== "accepted") return;
+    if (!booking) return;
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(id);
-  }, [booking?.status, booking?.starts_at]);
+  }, [booking?.id, booking?.starts_at]);
 
   function onCancelBooking() {
     if (!booking) return;
@@ -93,11 +94,15 @@ export function DashboardLive({
       <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-linear-to-br from-zinc-950 via-zinc-900 to-black p-5 shadow-xl shadow-black/40">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-amber-400/15 blur-3xl"
+          className="premium-ambient pointer-events-none absolute -right-10 -top-10 size-44 rounded-full bg-amber-400/15 blur-3xl"
         />
-        <div className="relative space-y-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-amber-100/60 to-transparent"
+        />
+        <div className="relative space-y-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/80">
-            Espace privé membre
+            Espace réservé aux membres ShopTonDrone Privé
           </p>
           <h2 className="text-2xl font-semibold tracking-tight text-white">
             Bonjour {displayName}
@@ -106,6 +111,16 @@ export function DashboardLive({
             Retrouvez votre réservation en cours, votre carte fidélité et vos
             gratuits disponibles dans un espace réservé aux membres.
           </p>
+          <div className="grid grid-cols-2 gap-2">
+            <span className="flex items-center gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-100">
+              <ShieldCheck className="size-4" aria-hidden />
+              Membre actif
+            </span>
+            <span className="flex items-center gap-2 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-100">
+              <Crown className="size-4" aria-hidden />
+              Accès prioritaire activé
+            </span>
+          </div>
         </div>
       </section>
 
@@ -113,10 +128,12 @@ export function DashboardLive({
         booking={booking}
         canCancel={Boolean(canCancel)}
         cancelPending={cancelPending}
+        nowMs={now.getTime()}
         onCancel={onCancelBooking}
       />
 
       <LoyaltyCard
+        userId={userId}
         displayName={displayName}
         vipLevel={vipLevel}
         totalUnlocks={totalUnlocks}
@@ -129,6 +146,7 @@ export function DashboardLive({
         freeEarned={freeEarned}
         freeUsed={freeUsed}
         freeUsedHistory={loyalty.freeUsedHistory}
+        cycle={cycle}
       />
       <RecentHistory items={loyalty.historyItems} />
       <Link
@@ -157,15 +175,59 @@ function bookingMessage(booking: ClientPendingBooking): string {
   }
 }
 
+function countdownLabel(startsAt: string, nowMs: number): string {
+  const diffMs = new Date(startsAt).getTime() - nowMs;
+  if (diffMs <= 0) return "Rendez-vous en cours";
+  const totalMinutes = Math.ceil(diffMs / 60_000);
+  const days = Math.floor(totalMinutes / 1_440);
+  const hours = Math.floor((totalMinutes % 1_440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days} j ${hours} h avant le rendez-vous`;
+  }
+  if (hours > 0) {
+    return `${hours} h ${minutes} min avant le rendez-vous`;
+  }
+  return `${minutes} min avant le rendez-vous`;
+}
+
+function bookingTimeline(booking: ClientPendingBooking) {
+  return [
+    {
+      label: "Demande envoyée",
+      active: true,
+      done: true,
+    },
+    {
+      label: "Réservation acceptée",
+      active: booking.status === "accepted",
+      done: booking.status === "accepted",
+    },
+    {
+      label: "Accès confirmé",
+      active: booking.status === "accepted",
+      done: booking.status === "accepted",
+    },
+    {
+      label: "Déblocage validé",
+      active: false,
+      done: false,
+    },
+  ];
+}
+
 function ReservationStatusCard({
   booking,
   canCancel,
   cancelPending,
+  nowMs,
   onCancel,
 }: {
   booking: ClientPendingBooking | null;
   canCancel: boolean;
   cancelPending: boolean;
+  nowMs: number;
   onCancel: () => void;
 }) {
   if (!booking) {
@@ -192,51 +254,112 @@ function ReservationStatusCard({
 
   const blockedAcceptedCancellation =
     booking.status === "accepted" && !canCancel;
+  const statusTone =
+    booking.status === "accepted"
+      ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-50"
+      : booking.status === "pending"
+        ? "border-amber-300/35 bg-amber-400/15 text-amber-50"
+        : booking.status === "refused"
+          ? "border-rose-300/35 bg-rose-400/15 text-rose-50"
+          : "border-zinc-300/20 bg-zinc-400/10 text-zinc-200";
 
   return (
-    <section className="space-y-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200/80">
-            Réservation en cours
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-foreground">
-            {formatSlotDateTime(booking.starts_at)}
-          </h3>
+    <section className="premium-float relative overflow-hidden rounded-3xl border border-amber-300/25 bg-linear-to-br from-amber-500/10 via-zinc-950 to-black p-5 shadow-2xl shadow-amber-950/30">
+      <div
+        aria-hidden
+        className="premium-ambient pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-amber-300/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-amber-100/70 to-transparent"
+      />
+      <div
+        aria-hidden
+        className="premium-sheen pointer-events-none absolute inset-y-0 left-0 w-24 bg-linear-to-r from-transparent via-white/10 to-transparent"
+      />
+
+      <div className="relative space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200/80">
+              Réservation prioritaire
+            </p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight text-white">
+              {formatSlotDateTime(booking.starts_at)}
+            </h3>
+          </div>
+          <span
+            className={cn(
+              "rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-[0_0_24px_rgba(245,158,11,0.12)]",
+              statusTone,
+            )}
+          >
+            {clientBookingStatusLabelFr(booking.status)}
+          </span>
         </div>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100">
-          {clientBookingStatusLabelFr(booking.status)}
-        </span>
-      </div>
 
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        {bookingMessage(booking)}
-      </p>
+        <div className="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-100">
+            <Clock3 className="size-5" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">
+              {countdownLabel(booking.starts_at, nowMs)}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+              {bookingMessage(booking)}
+            </p>
+          </div>
+        </div>
 
-      <p className="text-xs text-muted-foreground">
-        Vous pouvez annuler votre réservation jusqu’à 20 minutes avant le
-        rendez-vous.
-      </p>
+        <ol className="grid grid-cols-4 gap-2">
+          {bookingTimeline(booking).map((step) => (
+            <li key={step.label} className="relative flex flex-col gap-2">
+              <span
+                className={cn(
+                  "h-1 rounded-full transition-colors duration-700",
+                  step.done
+                    ? "bg-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.34)]"
+                    : "bg-white/10",
+                )}
+              />
+              <span
+                className={cn(
+                  "text-[10px] font-medium leading-tight",
+                  step.active || step.done ? "text-amber-50" : "text-zinc-500",
+                )}
+              >
+                {step.label}
+              </span>
+            </li>
+          ))}
+        </ol>
 
-      {blockedAcceptedCancellation ? (
-        <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-100">
-          Annulation impossible à moins de 20 minutes du rendez-vous.
+        <p className="text-xs text-zinc-400">
+          Vous pouvez annuler votre réservation jusqu’à 20 minutes avant le
+          rendez-vous.
         </p>
-      ) : null}
 
-      {canCancel ? (
-        <button
-          type="button"
-          disabled={cancelPending}
-          onClick={onCancel}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "h-12 w-full justify-center border-destructive/40 text-destructive hover:bg-destructive/10",
-          )}
-        >
-          Annuler ma réservation
-        </button>
-      ) : null}
+        {blockedAcceptedCancellation ? (
+          <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-100">
+            Annulation impossible à moins de 20 minutes du rendez-vous.
+          </p>
+        ) : null}
+
+        {canCancel ? (
+          <button
+            type="button"
+            disabled={cancelPending}
+            onClick={onCancel}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-12 w-full justify-center border-destructive/40 bg-black/20 text-destructive transition duration-500 hover:bg-destructive/10 active:scale-[0.99]",
+            )}
+          >
+            Annuler ma réservation
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import type { CycleProgress, VipLevel } from "@/lib/loyalty/vip";
 import { vipLevelLabelFr } from "@/lib/loyalty/vip";
 
 type LoyaltyCardProps = {
+  userId: string;
   displayName: string;
   vipLevel: VipLevel;
   totalUnlocks: number;
@@ -26,6 +27,7 @@ function vipBadgeClass(level: VipLevel) {
 }
 
 export function LoyaltyCard({
+  userId,
   displayName,
   vipLevel,
   totalUnlocks,
@@ -34,9 +36,16 @@ export function LoyaltyCard({
   freeAvailable,
 }: LoyaltyCardProps) {
   const vipLabel = vipLevelLabelFr[vipLevel];
+  const memberNumber = `STP-${userId.slice(0, 2).toUpperCase()}••••${userId.slice(-4).toUpperCase()}`;
+  const rarity =
+    vipLevel === "or"
+      ? "Membre signature"
+      : vipLevel === "bronze"
+        ? "Membre confirmé"
+        : "Membre privé";
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-linear-to-br from-zinc-800/90 via-zinc-900 to-zinc-950 p-6 shadow-xl shadow-black/50">
+    <section className="premium-float relative overflow-hidden rounded-3xl border border-white/10 bg-linear-to-br from-zinc-800/90 via-zinc-950 to-black p-6 shadow-2xl shadow-black/60">
       <div
         aria-hidden
         className="pointer-events-none absolute -right-10 -top-10 size-44 rounded-full bg-amber-400/15 blur-3xl"
@@ -45,16 +54,27 @@ export function LoyaltyCard({
         aria-hidden
         className="pointer-events-none absolute -bottom-14 -left-6 size-52 rounded-full bg-violet-500/10 blur-3xl"
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-size-[18px_18px] opacity-[0.045]"
+      />
+      <div
+        aria-hidden
+        className="premium-sheen pointer-events-none absolute inset-y-0 left-0 w-28 bg-linear-to-r from-transparent via-white/15 to-transparent"
+      />
 
       <div className="relative flex flex-col gap-6">
         <header className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-400">
-              Carte fidélité
+              Wallet privé
             </p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">
               {displayName}
             </h2>
+            <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              {memberNumber}
+            </p>
           </div>
           <span
             className={cn(
@@ -66,8 +86,23 @@ export function LoyaltyCard({
           </span>
         </header>
 
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-2xl border border-white/10 bg-white/4 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
+              Membre depuis
+            </p>
+            <p className="mt-1 font-semibold text-zinc-100">2026</p>
+          </div>
+          <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-amber-200/70">
+              Rareté
+            </p>
+            <p className="mt-1 font-semibold text-amber-50">{rarity}</p>
+          </div>
+        </div>
+
         <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 shadow-inner shadow-white/5 backdrop-blur-sm">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
               Déblocages totaux
             </dt>
@@ -75,7 +110,7 @@ export function LoyaltyCard({
               {totalUnlocks}
             </dd>
           </div>
-          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 backdrop-blur-sm">
+          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-amber-200/80">
               Gratuits disponibles
             </dt>
@@ -102,7 +137,7 @@ export function LoyaltyCard({
             aria-label={`Progression du cycle : ${cycle.label}`}
           >
             <div
-              className="h-full rounded-full bg-linear-to-r from-amber-500 via-amber-300 to-amber-400 transition-[width] duration-500"
+              className="premium-shimmer h-full rounded-full bg-linear-to-r from-amber-600 via-amber-200 to-amber-500 transition-[width] duration-700"
               style={{ width: `${cycle.percent}%` }}
             />
           </div>
