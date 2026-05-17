@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
@@ -19,6 +19,11 @@ import {
   vipLevelLabelFr,
 } from "@/lib/loyalty/vip";
 import { formatSlotDateTime } from "@/lib/booking/format";
+import {
+  canClientCancelBooking,
+  clientBookingStatusLabelFr,
+  isActiveClientBooking,
+} from "@/lib/realtime/client-bookings";
 
 import type { ClientPendingBooking } from "@/lib/realtime/client-bookings";
 
@@ -41,12 +46,22 @@ export function DeblocagePanel({
 }: DeblocagePanelProps) {
   const [showFlow, setShowFlow] = useState(false);
   const [slotsRefresh, setSlotsRefresh] = useState(0);
+  const [now, setNow] = useState(() => new Date());
   const [pendingUi, startTransition] = useTransition();
   const vip = getVipLevel(totalUnlocks);
   const cycle = getCycleProgress(totalUnlocks);
   const freeEarned = getFreeEarned(totalUnlocks);
   const freeAvailable = getFreeAvailable(freeEarned, freeUsedCount);
   const untilFree = getStampsUntilNextFree(totalUnlocks);
+  const activeBooking = isActiveClientBooking(pending) ? pending : null;
+  const canCancel =
+    activeBooking && canClientCancelBooking(activeBooking, now.getTime());
+
+  useEffect(() => {
+    if (activeBooking?.status !== "accepted") return;
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, [activeBooking?.status, activeBooking?.starts_at]);
 
   async function onCancel(id: string) {
     startTransition(async () => {
@@ -114,40 +129,51 @@ export function DeblocagePanel({
       </section>
 
       <section className="space-y-4">
-        {pending ? (
+        {activeBooking ? (
           <div className="flex flex-col gap-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5 animate-in fade-in duration-300">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-amber-50">
-                Réservation en attente
+                Réservation {clientBookingStatusLabelFr(activeBooking.status).toLowerCase()}
               </p>
               <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-100">
-                En cours
+                {clientBookingStatusLabelFr(activeBooking.status)}
               </span>
             </div>
             <p className="text-sm text-zinc-200">
               Créneau :{" "}
               <span className="font-medium text-amber-50">
-                {formatSlotDateTime(pending.starts_at)}
+                {formatSlotDateTime(activeBooking.starts_at)}
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
+              Vous pouvez annuler votre réservation jusqu’à 20 minutes avant le
+              rendez-vous.
+            </p>
+            {activeBooking.status === "accepted" && !canCancel ? (
+              <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-100">
+                Annulation impossible à moins de 20 minutes du rendez-vous.
+              </p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
               Demandée le{" "}
-              {new Date(pending.created_at).toLocaleString("fr-FR", {
+              {new Date(activeBooking.created_at).toLocaleString("fr-FR", {
                 dateStyle: "medium",
                 timeStyle: "short",
               })}
             </p>
-            <button
-              type="button"
-              disabled={pendingUi}
-              onClick={() => onCancel(pending.id)}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "h-12 w-full justify-center border-destructive/40 text-destructive hover:bg-destructive/10",
-              )}
-            >
-              Annuler la demande
-            </button>
+            {canCancel ? (
+              <button
+                type="button"
+                disabled={pendingUi}
+                onClick={() => onCancel(activeBooking.id)}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "h-12 w-full justify-center border-destructive/40 text-destructive hover:bg-destructive/10",
+                )}
+              >
+                Annuler ma réservation
+              </button>
+            ) : null}
           </div>
         ) : showFlow ? (
           <BookingFlow

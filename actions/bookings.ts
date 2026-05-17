@@ -8,7 +8,12 @@ import { createClient } from "@/lib/supabase/server";
 export type BookingActionResult =
   | {
       ok: true;
-      booking?: { id: string; created_at: string; starts_at: string };
+      booking?: {
+        id: string;
+        created_at: string;
+        starts_at: string;
+        status: "pending";
+      };
     }
   | { ok: false; error: string };
 
@@ -68,6 +73,7 @@ export async function createPendingBookingAction(
       id: row.id as string,
       created_at: row.created_at as string,
       starts_at: row.starts_at as string,
+      status: "pending",
     },
   };
 }
@@ -103,6 +109,12 @@ export async function cancelPendingBookingAction(
     }
     if (error.message.includes("invalid_state")) {
       return { ok: false, error: "Cette demande ne peut plus être annulée." };
+    }
+    if (error.message.includes("too_late")) {
+      return {
+        ok: false,
+        error: "Annulation impossible à moins de 20 minutes du rendez-vous.",
+      };
     }
     return { ok: false, error: error.message };
   }

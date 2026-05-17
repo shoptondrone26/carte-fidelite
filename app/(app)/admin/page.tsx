@@ -17,7 +17,10 @@ export const metadata: Metadata = {
 export default async function AdminDashboardPage() {
   const { supabase } = await requireAdmin("/admin");
   const { pending } = await fetchAdminBookings(supabase);
-  const stats = await fetchAdminStats(supabase, pending.length);
+  const stats = await fetchAdminStats(
+    supabase,
+    pending.filter((b) => b.status === "pending").length,
+  );
   const topClients = await fetchAdminTopClients(supabase);
 
   return <AdminHomeLive initial={{ stats, topClients, pending }} />;

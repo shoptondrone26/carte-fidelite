@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
@@ -37,6 +38,17 @@ export function AdminPendingRequestsSection({
     });
   }
 
+  function statusLabel(status: string) {
+    switch (status) {
+      case "pending":
+        return "En attente";
+      case "accepted":
+        return "Acceptée";
+      default:
+        return status;
+    }
+  }
+
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold tracking-tight">
@@ -44,7 +56,7 @@ export function AdminPendingRequestsSection({
       </h2>
       {pending.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-          Aucune demande en attente.
+          Aucune demande ou réservation à venir.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -75,41 +87,59 @@ export function AdminPendingRequestsSection({
                     badgeFor(b.status),
                   )}
                 >
-                  {b.status}
+                  {statusLabel(b.status)}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    run(
-                      acceptBookingAction,
-                      b.id,
-                      "Réservation acceptée — place validée",
-                    )
-                  }
-                  className={cn(
-                    buttonVariants({ variant: "default", size: "lg" }),
-                    "h-12 w-full justify-center bg-emerald-600 text-white hover:bg-emerald-600/90",
-                  )}
-                >
-                  Accepter
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    run(refuseBookingAction, b.id, "Réservation refusée")
-                  }
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "lg" }),
-                    "h-12 w-full justify-center border-rose-500/40 text-rose-100 hover:bg-rose-500/10",
-                  )}
-                >
-                  Refuser
-                </button>
-              </div>
+              {b.status === "pending" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        acceptBookingAction,
+                        b.id,
+                        "Réservation acceptée — place validée",
+                      )
+                    }
+                    className={cn(
+                      buttonVariants({ variant: "default", size: "lg" }),
+                      "h-12 w-full justify-center bg-emerald-600 text-white hover:bg-emerald-600/90",
+                    )}
+                  >
+                    Accepter
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(refuseBookingAction, b.id, "Réservation refusée")
+                    }
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "h-12 w-full justify-center border-rose-500/40 text-rose-100 hover:bg-rose-500/10",
+                    )}
+                  >
+                    Refuser
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-xs text-emerald-100/90">
+                    Rendez-vous accepté à venir. Validez le déblocage depuis la
+                    carte client après le passage.
+                  </p>
+                  <Link
+                    href="/admin/clients"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "h-12 w-full justify-center border-emerald-500/35 text-emerald-100 hover:bg-emerald-500/10",
+                    )}
+                  >
+                    Voir carte client
+                  </Link>
+                </div>
+              )}
             </li>
           ))}
         </ul>

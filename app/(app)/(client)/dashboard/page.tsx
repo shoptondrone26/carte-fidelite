@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardLive } from "@/components/client/dashboard-live";
-import { PushSettingsPanel } from "@/components/notifications/push-settings-panel";
 import { signOut } from "@/actions/auth";
 import { getIsAdmin } from "@/lib/auth/roles";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
@@ -50,6 +49,41 @@ export default async function DashboardPage() {
     .eq("event_type", "free_used")
     .order("created_at", { ascending: false })
     .limit(12);
+
+  const nowIso = new Date().toISOString();
+
+  const { data: pendingBooking } = await supabase
+    .from("bookings")
+    .select("id, created_at, starts_at, status")
+    .eq("profile_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  const { data: acceptedBooking } = pendingBooking
+    ? { data: null }
+    : await supabase
+        .from("bookings")
+        .select("id, created_at, starts_at, status")
+        .eq("profile_id", user.id)
+        .eq("status", "accepted")
+        .gt("starts_at", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+  const { data: latestBooking } =
+    pendingBooking || acceptedBooking
+      ? { data: null }
+      : await supabase
+          .from("bookings")
+          .select("id, created_at, starts_at, status")
+          .eq("profile_id", user.id)
+          .in("status", ["accepted", "refused", "cancelled"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+  const booking = pendingBooking ?? acceptedBooking ?? latestBooking;
 
   const { count: freeUsedCount } = await supabase
     .from("history")
@@ -101,14 +135,25 @@ export default async function DashboardPage() {
       ) : null}
 
       {profile ? (
-        <>
-          <PushSettingsPanel initialEnabled={profile.push_enabled ?? true} />
-          <DashboardLive
-            userId={user.id}
-            displayName={displayName}
-            initial={loyaltyInitial}
-          />
-        </>
+        <DashboardLive
+          userId={user.id}
+          displayName={displayName}
+          initial={loyaltyInitial}
+          initialBooking={
+            booking
+              ? {
+                  id: booking.id,
+                  created_at: booking.created_at,
+                  starts_at: booking.starts_at,
+                  status: booking.status as
+                    | "pending"
+                    | "accepted"
+                    | "refused"
+                    | "cancelled",
+                }
+              : null
+          }
+        />
       ) : (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Profil introuvable. Le trigger sur{" "}

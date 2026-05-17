@@ -27,12 +27,26 @@ export default async function DeblocagePage() {
     .eq("id", user.id)
     .maybeSingle();
 
+  const nowIso = new Date().toISOString();
+
   const { data: pendingRow } = await supabase
     .from("bookings")
-    .select("id, created_at, starts_at")
+    .select("id, created_at, starts_at, status")
     .eq("profile_id", user.id)
     .eq("status", "pending")
     .maybeSingle();
+
+  const { data: acceptedRow } = pendingRow
+    ? { data: null }
+    : await supabase
+        .from("bookings")
+        .select("id, created_at, starts_at, status")
+        .eq("profile_id", user.id)
+        .eq("status", "accepted")
+        .gt("starts_at", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
   const { data: historyRows } = await supabase
     .from("history")
@@ -86,11 +100,14 @@ export default async function DeblocagePage() {
         userId={user.id}
         displayName={displayName}
         initialPending={
-          pendingRow
+          pendingRow ?? acceptedRow
             ? {
-                id: pendingRow.id,
-                created_at: pendingRow.created_at,
-                starts_at: pendingRow.starts_at,
+                id: (pendingRow ?? acceptedRow)!.id,
+                created_at: (pendingRow ?? acceptedRow)!.created_at,
+                starts_at: (pendingRow ?? acceptedRow)!.starts_at,
+                status: (pendingRow ?? acceptedRow)!.status as
+                  | "pending"
+                  | "accepted",
               }
             : null
         }

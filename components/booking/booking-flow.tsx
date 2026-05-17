@@ -41,6 +41,7 @@ export function BookingFlow({ onBooked, onCancel }: BookingFlowProps) {
           id: res.booking.id,
           created_at: res.booking.created_at,
           starts_at: res.booking.starts_at,
+          status: res.booking.status,
         });
         toast.success("Réservation envoyée", {
           description: `${formatSlotDate(res.booking.starts_at)} · ${formatSlotTime(res.booking.starts_at)}`,

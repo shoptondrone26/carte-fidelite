@@ -36,7 +36,10 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
     const supabase = createClient();
     const { pending } = await fetchAdminBookings(supabase);
     const [stats, topClients] = await Promise.all([
-      fetchAdminStats(supabase, pending.length),
+      fetchAdminStats(
+        supabase,
+        pending.filter((b) => b.status === "pending").length,
+      ),
       fetchAdminTopClients(supabase),
     ]);
     setData({ stats, topClients, pending });
