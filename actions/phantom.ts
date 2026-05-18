@@ -49,6 +49,7 @@ export async function createPhantomRequestAction(): Promise<PhantomActionResult>
 
   revalidatePath("/dashboard");
   revalidatePath("/admin");
+  revalidatePath("/admin/reservations");
   revalidatePath("/admin/history");
 
   const request = await fetchClientPhantomRequest(supabase, user.id);
@@ -95,6 +96,7 @@ export async function updatePhantomRequestStatusAction(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/reservations");
   revalidatePath("/admin/history");
   revalidatePath("/dashboard");
 
@@ -142,6 +144,7 @@ export async function completePhantomRequestAction(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/reservations");
   revalidatePath("/admin/history");
   revalidatePath("/dashboard");
 

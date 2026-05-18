@@ -40,18 +40,13 @@ export type AdminPhantomRequest = PhantomRequest & {
 type PhantomRequestRow = Omit<PhantomRequest, "status" | "amount_eur"> & {
   status: string;
   amount_eur: number;
-  profiles?:
-    | {
-        full_name: string | null;
-        email: string | null;
-        snap?: string | null;
-      }
-    | {
-        full_name: string | null;
-        email: string | null;
-        snap?: string | null;
-      }[]
-    | null;
+};
+
+type PhantomProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  snap: string | null;
 };
 
 export const PHANTOM_ACTIVE_STATUSES: PhantomRequestStatus[] = [
@@ -130,11 +125,13 @@ export function mapPhantomRequest(row: PhantomRequestRow): PhantomRequest | null
   };
 }
 
-function mapAdminPhantomRequest(row: PhantomRequestRow): AdminPhantomRequest | null {
+function mapAdminPhantomRequest(
+  row: PhantomRequestRow,
+  profilesById: Map<string, PhantomProfileRow>,
+): AdminPhantomRequest | null {
   const request = mapPhantomRequest(row);
   if (!request) return null;
-  const p = row.profiles;
-  const profile = Array.isArray(p) ? p[0] ?? null : p ?? null;
+  const profile = profilesById.get(request.profile_id) ?? null;
   return {
     ...request,
     profiles: profile
@@ -171,7 +168,7 @@ export async function fetchAdminPhantomRequests(
   const { data, error } = await supabase
     .from("phantom_requests")
     .select(
-      "id, profile_id, status, amount_eur, admin_note, created_at, updated_at, accepted_at, payment_pending_at, paid_at, started_at, completed_at, cancelled_at, handled_by, profiles (full_name, email, snap)",
+      "id, profile_id, status, amount_eur, admin_note, created_at, updated_at, accepted_at, payment_pending_at, paid_at, started_at, completed_at, cancelled_at, handled_by",
     )
     .in("status", PHANTOM_ACTIVE_STATUSES)
     .order("created_at", { ascending: true });
@@ -181,7 +178,26 @@ export async function fetchAdminPhantomRequests(
     return [];
   }
 
-  return ((data as PhantomRequestRow[] | null) ?? [])
-    .map(mapAdminPhantomRequest)
+  const rows = (data as PhantomRequestRow[] | null) ?? [];
+  const profileIds = [...new Set(rows.map((row) => row.profile_id))];
+  const profilesById = new Map<string, PhantomProfileRow>();
+
+  if (profileIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, snap")
+      .in("id", profileIds);
+
+    if (profileError) {
+      console.error("fetchAdminPhantomProfiles", profileError.message);
+    } else {
+      for (const profile of (profiles as PhantomProfileRow[] | null) ?? []) {
+        profilesById.set(profile.id, profile);
+      }
+    }
+  }
+
+  return rows
+    .map((row) => mapAdminPhantomRequest(row, profilesById))
     .filter((row): row is AdminPhantomRequest => Boolean(row));
 }
