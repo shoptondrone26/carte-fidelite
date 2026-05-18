@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Clock3, Crown, ShieldCheck } from "lucide-react";
+import { Clock3, Crown, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
+import { createPhantomRequestAction } from "@/actions/phantom";
 import { LoyaltyCard } from "@/components/dashboard/loyalty-card";
 import { RecentHistory } from "@/components/dashboard/recent-history";
 import { buttonVariants } from "@/components/ui/button";
 import { useClientBookingsRealtime } from "@/hooks/use-client-bookings-realtime";
 import { useClientLoyaltyRealtime } from "@/hooks/use-client-loyalty-realtime";
+import { useClientPhantomRealtime } from "@/hooks/use-client-phantom-realtime";
 import { formatSlotDateTime } from "@/lib/booking/format";
 import {
   getFreeAvailable,
@@ -28,6 +30,14 @@ import {
 } from "@/lib/realtime/client-bookings";
 import { trackAnalyticsEvent } from "@/lib/analytics/client";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
+import {
+  PHANTOM_AMOUNT_EUR,
+  isActivePhantomRequest,
+  phantomClientMessage,
+  phantomStatusLabelFr,
+  type PhantomRequest,
+  type PhantomRequestStatus,
+} from "@/lib/phantom/requests";
 import { cn } from "@/lib/utils";
 
 type DashboardLiveProps = {
@@ -35,6 +45,7 @@ type DashboardLiveProps = {
   displayName: string;
   initial: ClientLoyaltySnapshot;
   initialBooking: ClientPendingBooking | null;
+  initialPhantomRequest: PhantomRequest | null;
 };
 
 export function DashboardLive({
@@ -42,6 +53,7 @@ export function DashboardLive({
   displayName,
   initial,
   initialBooking,
+  initialPhantomRequest,
 }: DashboardLiveProps) {
   const loyalty = useClientLoyaltyRealtime(userId, initial);
   const { pending: booking, setPending: setBooking } = useClientBookingsRealtime(
@@ -65,8 +77,14 @@ export function DashboardLive({
       },
     },
   );
+  const { phantomRequest, setPhantomRequest } = useClientPhantomRealtime(
+    userId,
+    initialPhantomRequest,
+  );
   const [now, setNow] = useState(() => new Date());
   const [cancelPending, startCancel] = useTransition();
+  const [phantomPending, startPhantom] = useTransition();
+  const [confirmPhantom, setConfirmPhantom] = useState(false);
   const totalUnlocks = loyalty.totalUnlocks;
   const vipLevel = getVipLevel(totalUnlocks);
   const cycle = getCycleProgress(totalUnlocks);
@@ -115,6 +133,21 @@ export function DashboardLive({
     });
   }
 
+  function onCreatePhantomRequest() {
+    startPhantom(async () => {
+      const res = await createPhantomRequestAction();
+      if (res.ok) {
+        if (res.request) setPhantomRequest(res.request);
+        setConfirmPhantom(false);
+        toast.success("Demande Mode Phantom envoyée", {
+          description: "ShopTonDrone va valider votre demande.",
+        });
+      } else {
+        toast.error("Demande impossible", { description: res.error });
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-linear-to-br from-zinc-950 via-zinc-900 to-black p-5 shadow-xl shadow-black/40">
@@ -159,6 +192,15 @@ export function DashboardLive({
         onCancel={onCancelBooking}
       />
 
+      <PhantomModeCard
+        request={phantomRequest}
+        confirmOpen={confirmPhantom}
+        pending={phantomPending}
+        onOpenConfirm={() => setConfirmPhantom(true)}
+        onCloseConfirm={() => setConfirmPhantom(false)}
+        onConfirm={onCreatePhantomRequest}
+      />
+
       <LoyaltyCard
         userId={userId}
         displayName={displayName}
@@ -179,6 +221,190 @@ export function DashboardLive({
         Retour à l&apos;accueil
       </Link>
     </div>
+  );
+}
+
+function phantomTimeline(status: PhantomRequestStatus) {
+  const order: {
+    status: PhantomRequestStatus;
+    label: string;
+    doneWhen: PhantomRequestStatus[];
+  }[] = [
+    {
+      status: "pending",
+      label: "Demande envoyée",
+      doneWhen: [
+        "pending",
+        "accepted",
+        "payment_pending",
+        "paid",
+        "in_progress",
+        "completed",
+      ],
+    },
+    {
+      status: "accepted",
+      label: "Validation admin",
+      doneWhen: ["accepted", "payment_pending", "paid", "in_progress", "completed"],
+    },
+    {
+      status: "payment_pending",
+      label: "Paiement en attente",
+      doneWhen: ["payment_pending", "paid", "in_progress", "completed"],
+    },
+    {
+      status: "in_progress",
+      label: "Intervention en cours",
+      doneWhen: ["in_progress", "completed"],
+    },
+    {
+      status: "completed",
+      label: "Mode Phantom terminé",
+      doneWhen: ["completed"],
+    },
+  ];
+
+  return order.map((step) => ({
+    label: step.label,
+    done: step.doneWhen.includes(status),
+    active: step.status === status || (step.status === "payment_pending" && status === "paid"),
+  }));
+}
+
+function PhantomModeCard({
+  request,
+  confirmOpen,
+  pending,
+  onOpenConfirm,
+  onCloseConfirm,
+  onConfirm,
+}: {
+  request: PhantomRequest | null;
+  confirmOpen: boolean;
+  pending: boolean;
+  onOpenConfirm: () => void;
+  onCloseConfirm: () => void;
+  onConfirm: () => void;
+}) {
+  const activeRequest = isActivePhantomRequest(request) ? request : null;
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-amber-200/20 bg-linear-to-br from-black via-zinc-950 to-amber-950/20 p-5 shadow-2xl shadow-amber-950/20">
+      <div
+        aria-hidden
+        className="premium-ambient pointer-events-none absolute -right-14 -top-14 size-44 rounded-full bg-amber-300/15 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-amber-100/60 to-transparent"
+      />
+
+      <div className="relative space-y-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200/25 bg-amber-300/10 text-amber-100">
+            <Sparkles className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-200/75">
+              Service exclusif
+            </p>
+            <h3 className="mt-1 text-lg font-semibold tracking-tight text-white">
+              Mode Phantom
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+              Intervention premium avec validation ShopTonDrone et paiement
+              manuel via Snapchat.
+            </p>
+          </div>
+        </div>
+
+        {activeRequest ? (
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-black/35 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-amber-50">
+                {phantomStatusLabelFr[activeRequest.status]}
+              </p>
+              <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold text-amber-100">
+                {PHANTOM_AMOUNT_EUR}€
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-zinc-300">
+              {phantomClientMessage(activeRequest.status)}
+            </p>
+            <ol className="grid grid-cols-5 gap-2">
+              {phantomTimeline(activeRequest.status).map((step) => (
+                <li key={step.label} className="flex flex-col gap-2">
+                  <span
+                    className={cn(
+                      "h-1 rounded-full transition-colors duration-700",
+                      step.done
+                        ? "bg-amber-300 shadow-[0_0_16px_rgba(252,211,77,0.32)]"
+                        : "bg-white/10",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-[9px] font-medium leading-tight",
+                      step.active || step.done ? "text-amber-50" : "text-zinc-500",
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : confirmOpen ? (
+          <div className="space-y-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
+            <p className="text-sm font-semibold text-amber-50">
+              Confirmer la demande Mode Phantom
+            </p>
+            <p className="text-sm leading-relaxed text-zinc-300">
+              Votre demande sera envoyée à ShopTonDrone. Après validation,
+              finalisez le paiement de {PHANTOM_AMOUNT_EUR}€ directement sur
+              Snapchat.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onCloseConfirm}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "h-11 justify-center border-white/15 bg-black/20",
+                )}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onConfirm}
+                className={cn(
+                  buttonVariants({ variant: "default", size: "lg" }),
+                  "h-11 justify-center bg-amber-300 text-black hover:bg-amber-200",
+                )}
+              >
+                Envoyer
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onOpenConfirm}
+            className="group relative flex min-h-14 w-full items-center justify-center overflow-hidden rounded-2xl border border-amber-200/35 bg-linear-to-r from-amber-300 via-amber-200 to-yellow-500 px-4 py-3 text-sm font-bold text-black shadow-xl shadow-amber-950/25 transition duration-500 active:scale-[0.99]"
+          >
+            <span
+              aria-hidden
+              className="premium-sheen absolute inset-y-0 left-0 w-20 bg-linear-to-r from-transparent via-white/40 to-transparent"
+            />
+            <span className="relative">Demander le mode Phantom — 500€</span>
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

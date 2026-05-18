@@ -11,6 +11,9 @@ export type AccountingSummary = {
   revenueMonth: number;
   paidUnlocksCount: number;
   paidUnlocksToday: number;
+  phantomRevenueTotal: number;
+  phantomRevenueMonth: number;
+  phantomCompletedCount: number;
   freeUsedCount: number;
   avgBasket: number;
 };
@@ -93,7 +96,7 @@ function groupByLocalDay(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalDateKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.unlocks += accountingUnlockDelta(row);
     map.set(key, cur);
   }
   return map;
@@ -105,7 +108,7 @@ function groupByLocalMonth(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalMonthKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.unlocks += accountingUnlockDelta(row);
     map.set(key, cur);
   }
   return map;
@@ -208,11 +211,20 @@ function sumAmounts(rows: { amount_eur: number }[]): number {
   return rows.reduce((acc, row) => acc + row.amount_eur, 0);
 }
 
-function netPaidUnlocks(rows: { amount_eur: number }[]): number {
-  return rows.reduce(
-    (acc, row) => acc + (row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0),
-    0,
-  );
+function accountingUnlockDelta(row: {
+  amount_eur: number;
+  action_type?: string;
+}): number {
+  if (row.action_type === "phantom_mode") return 0;
+  return row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+}
+
+function isUnlockAccountingRow(row: { action_type?: string }): boolean {
+  return row.action_type !== "phantom_mode";
+}
+
+function netPaidUnlocks(rows: { amount_eur: number; action_type?: string }[]): number {
+  return rows.reduce((acc, row) => acc + accountingUnlockDelta(row), 0);
 }
 
 function filterSince(rows: AmountRow[], sinceIso: string): AmountRow[] {
@@ -258,9 +270,15 @@ export async function fetchAccountingSummary(
   const todayRows = filterSince(rows, todayStart);
   const weekRows = filterSince(rows, weekStart);
   const monthRows = filterSince(rows, monthStart);
+  const unlockRows = rows.filter(isUnlockAccountingRow);
+  const phantomRows = rows.filter((row) => row.action_type === "phantom_mode");
+  const phantomMonthRows = monthRows.filter(
+    (row) => row.action_type === "phantom_mode",
+  );
 
   const revenueTotal = sumAmounts(rows);
-  const paidUnlocksCount = Math.max(0, netPaidUnlocks(rows));
+  const paidUnlocksCount = Math.max(0, netPaidUnlocks(unlockRows));
+  const unlockRevenueTotal = sumAmounts(unlockRows);
 
   return {
     revenueTotal,
@@ -269,9 +287,14 @@ export async function fetchAccountingSummary(
     revenueMonth: sumAmounts(monthRows),
     paidUnlocksCount,
     paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
+    phantomRevenueTotal: sumAmounts(phantomRows),
+    phantomRevenueMonth: sumAmounts(phantomMonthRows),
+    phantomCompletedCount: phantomRows.filter((row) => row.amount_eur > 0).length,
     freeUsedCount: freeUsedResult.count ?? 0,
     avgBasket:
-      paidUnlocksCount > 0 ? Math.round(revenueTotal / paidUnlocksCount) : 0,
+      paidUnlocksCount > 0
+        ? Math.round(unlockRevenueTotal / paidUnlocksCount)
+        : 0,
   };
 }
 
@@ -329,7 +352,7 @@ export async function fetchClientSpendStats(
 ): Promise<ClientSpendStats> {
   const { data, error } = await supabase
     .from("accounting_transactions")
-    .select("amount_eur")
+    .select("amount_eur, action_type")
     .eq("profile_id", profileId);
 
   if (error) throw error;
@@ -347,7 +370,7 @@ export async function fetchSpendByClient(
 ): Promise<Record<string, ClientSpendStats>> {
   const { data, error } = await supabase
     .from("accounting_transactions")
-    .select("profile_id, amount_eur");
+    .select("profile_id, amount_eur, action_type");
 
   if (error) throw error;
 
@@ -359,8 +382,7 @@ export async function fetchSpendByClient(
       freeUsedCount: 0,
     };
     current.totalSpentEur += row.amount_eur;
-    current.paidUnlocksCount +=
-      row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    current.paidUnlocksCount += accountingUnlockDelta(row);
     map[row.profile_id] = current;
   }
   for (const stats of Object.values(map)) {
@@ -383,7 +405,7 @@ export async function fetchTopClientsByRevenue(
   for (const row of txRows ?? []) {
     const cur = totals.get(row.profile_id) ?? { sum: 0, count: 0 };
     cur.sum += row.amount_eur;
-    cur.count += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.count += accountingUnlockDelta(row);
     totals.set(row.profile_id, cur);
   }
 

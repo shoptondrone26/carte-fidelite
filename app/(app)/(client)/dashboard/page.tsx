@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { DashboardLive } from "@/components/client/dashboard-live";
 import { signOut } from "@/actions/auth";
 import { getIsAdmin } from "@/lib/auth/roles";
+import { fetchClientPhantomRequest } from "@/lib/phantom/requests";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
@@ -85,11 +86,14 @@ export default async function DashboardPage() {
 
   const booking = pendingBooking ?? acceptedBooking ?? latestBooking;
 
-  const { count: freeUsedCount } = await supabase
-    .from("history")
-    .select("id", { count: "exact", head: true })
-    .eq("subject_id", user.id)
-    .eq("event_type", "free_used");
+  const [{ count: freeUsedCount }, phantomRequest] = await Promise.all([
+    supabase
+      .from("history")
+      .select("id", { count: "exact", head: true })
+      .eq("subject_id", user.id)
+      .eq("event_type", "free_used"),
+    fetchClientPhantomRequest(supabase, user.id),
+  ]);
 
   const displayName =
     profile?.full_name?.trim() ||
@@ -153,6 +157,7 @@ export default async function DashboardPage() {
                 }
               : null
           }
+          initialPhantomRequest={phantomRequest}
         />
       ) : (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
