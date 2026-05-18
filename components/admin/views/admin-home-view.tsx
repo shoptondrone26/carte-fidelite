@@ -8,17 +8,21 @@ import type {
   AdminStats,
 } from "@/components/admin/admin-types";
 import { AdminPendingRequestsSection } from "@/components/admin/views/admin-bookings-view";
+import { AdminPhantomRequestsSection } from "@/components/admin/views/admin-phantom-requests-section";
 import { ADMIN_NAV_ITEMS } from "@/lib/admin/navigation";
+import type { AdminPhantomRequest } from "@/lib/phantom/requests";
 type AdminHomeViewProps = {
   stats: AdminStats;
   topClients: AdminClientRow[];
   pending: AdminBookingRow[];
+  phantomRequests: AdminPhantomRequest[];
 };
 
 export function AdminHomeView({
   stats,
   topClients,
   pending,
+  phantomRequests,
 }: AdminHomeViewProps) {
   const shortcuts = ADMIN_NAV_ITEMS.filter((n) => n.href !== "/admin");
 
@@ -40,6 +44,8 @@ export function AdminHomeView({
       </section>
 
       <AdminPendingRequestsSection pending={pending} />
+
+      <AdminPhantomRequestsSection requests={phantomRequests} />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">

@@ -10,6 +10,7 @@ import {
   fetchAdminBookings,
   fetchAdminCalendarBookings,
 } from "@/lib/admin/data";
+import { fetchAdminPhantomRequests } from "@/lib/phantom/requests";
 import { requireAdmin } from "@/lib/admin/require-admin";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +22,17 @@ export const metadata: Metadata = {
 export default async function AdminReservationsPage() {
   const { supabase } = await requireAdmin("/admin/reservations");
   const { rangeStartIso, rangeEndIso } = adminReservationsFetchRange();
-  const [{ pending, recent }, calendar] = await Promise.all([
+  const [{ pending, recent }, calendar, phantomRequests] = await Promise.all([
     fetchAdminBookings(supabase),
     fetchAdminCalendarBookings(supabase, rangeStartIso, rangeEndIso),
+    fetchAdminPhantomRequests(supabase),
   ]);
 
   return (
     <AdminReservationsLive
       initialList={{ pending, recent }}
       initialCalendar={calendar}
+      initialPhantomRequests={phantomRequests}
       rangeStartIso={rangeStartIso}
       rangeEndIso={rangeEndIso}
     />

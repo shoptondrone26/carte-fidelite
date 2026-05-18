@@ -6,6 +6,7 @@ import {
   fetchAdminStats,
   fetchAdminTopClients,
 } from "@/lib/admin/data";
+import { fetchAdminPhantomRequests } from "@/lib/phantom/requests";
 import { requireAdmin } from "@/lib/admin/require-admin";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,12 @@ export default async function AdminDashboardPage() {
     supabase,
     pending.filter((b) => b.status === "pending").length,
   );
-  const topClients = await fetchAdminTopClients(supabase);
+  const [topClients, phantomRequests] = await Promise.all([
+    fetchAdminTopClients(supabase),
+    fetchAdminPhantomRequests(supabase),
+  ]);
 
-  return <AdminHomeLive initial={{ stats, topClients, pending }} />;
+  return (
+    <AdminHomeLive initial={{ stats, topClients, pending, phantomRequests }} />
+  );
 }

@@ -6,6 +6,15 @@ export const historyEventLabelFr: Record<string, string> = {
   booking_refused: "Réservation refusée",
   booking_requested: "Demande envoyée",
   booking_cancelled: "Demande annulée",
+  phantom_requested: "Mode Fantôme demandé",
+  phantom_accepted: "Mode Fantôme accepté",
+  phantom_payment_pending: "Paiement Mode Fantôme en attente",
+  phantom_paid: "Paiement Mode Fantôme reçu",
+  phantom_in_progress: "Mode Fantôme en cours",
+  phantom_completed: "Mode Fantôme terminé",
+  phantom_cancelled: "Mode Fantôme annulé",
+  phantom_refused: "Mode Fantôme refusé",
+  phantom_mode_updated: "Mode Fantôme mis à jour",
   client_reset: "Client réinitialisé",
 };
 

@@ -14,6 +14,10 @@ import {
   fetchAdminStats,
   fetchAdminTopClients,
 } from "@/lib/admin/data";
+import {
+  fetchAdminPhantomRequests,
+  type AdminPhantomRequest,
+} from "@/lib/phantom/requests";
 import { ADMIN_HOME_SYNC } from "@/lib/realtime/admin-sync";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,6 +26,7 @@ type AdminHomeLiveProps = {
     stats: AdminStats;
     topClients: AdminClientRow[];
     pending: AdminBookingRow[];
+    phantomRequests: AdminPhantomRequest[];
   };
 };
 
@@ -42,7 +47,8 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
       ),
       fetchAdminTopClients(supabase),
     ]);
-    setData({ stats, topClients, pending });
+    const phantomRequests = await fetchAdminPhantomRequests(supabase);
+    setData({ stats, topClients, pending, phantomRequests });
   }, []);
 
   useAdminRealtimeRefetch(refetch, ADMIN_HOME_SYNC, 400, "admin:home");
@@ -52,6 +58,7 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
       stats={data.stats}
       topClients={data.topClients}
       pending={data.pending}
+      phantomRequests={data.phantomRequests}
     />
   );
 }
