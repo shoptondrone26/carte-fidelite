@@ -25,22 +25,6 @@ export function AccountingSecondaryStats({
         value={summary.freeUsedCount}
         accent="violet"
       />
-      <StatCard
-        label="Mode Phantom"
-        value={summary.phantomCompletedCount}
-        accent="amber"
-      />
-      <div className="rounded-2xl border border-amber-200/15 bg-amber-500/10 p-4 shadow-inner shadow-black/20">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-amber-100/80">
-          CA Phantom
-        </p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-50">
-          {formatEur(summary.phantomRevenueTotal)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatEur(summary.phantomRevenueMonth)} ce mois
-        </p>
-      </div>
       <div className="rounded-2xl border border-white/10 bg-card/50 p-4 shadow-inner shadow-black/20">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
           Panier moyen

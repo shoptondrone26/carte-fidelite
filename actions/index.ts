@@ -6,11 +6,6 @@ export {
 export { validateUnlockAction } from "./admin-unlock";
 export { markFreeUsedAction } from "./admin-free";
 export {
-  completePhantomRequestAction,
-  createPhantomRequestAction,
-  updatePhantomRequestStatusAction,
-} from "./phantom";
-export {
   cancelPendingBookingAction,
   createPendingBookingAction,
 } from "./bookings";

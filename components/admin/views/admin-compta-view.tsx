@@ -26,7 +26,7 @@ export function AdminComptaView({
   return (
     <div className="flex flex-col gap-8 pb-4">
       <p className="text-sm text-muted-foreground">
-        Suivi des déblocages payants et du Mode Phantom. Données visibles
+        Suivi des déblocages payants (150 € / 200 €). Données visibles
         uniquement par les administrateurs.
       </p>
 
