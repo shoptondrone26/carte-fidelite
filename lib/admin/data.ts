@@ -136,7 +136,6 @@ export async function fetchAdminStats(
 export async function fetchAdminBookings(supabase: SupabaseClient) {
   const bookingSelect =
     "id, status, validated, created_at, starts_at, ends_at, profile_id, profiles (full_name, email, snap)";
-  const nowIso = new Date().toISOString();
 
   const { data: pendingRaw } = await supabase
     .from("bookings")
@@ -148,7 +147,6 @@ export async function fetchAdminBookings(supabase: SupabaseClient) {
     .from("bookings")
     .select(bookingSelect)
     .eq("status", "accepted")
-    .gt("starts_at", nowIso)
     .order("starts_at", { ascending: true });
 
   const upcomingAccepted =

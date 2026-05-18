@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   acceptBookingAction,
+  cancelAdminBookingAction,
   refuseBookingAction,
 } from "@/actions/admin-bookings";
 import { badgeFor } from "@/components/admin/admin-ui";
@@ -89,7 +90,7 @@ export function AdminPendingRequestsSection({
       </h2>
       {pending.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-          Aucune demande ou réservation à venir.
+          Aucune demande ou réservation à traiter.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -162,8 +163,8 @@ export function AdminPendingRequestsSection({
               ) : (
                 <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <p className="text-xs text-emerald-100/90">
-                    Rendez-vous accepté à venir. Validez le déblocage depuis la
-                    carte client après le passage.
+                    Réservation acceptée. Elle reste ici jusqu’à validation du
+                    déblocage sur la carte client.
                   </p>
                   <Link
                     href={`/admin/clients?client=${b.profile_id}`}
@@ -174,6 +175,23 @@ export function AdminPendingRequestsSection({
                   >
                     Voir carte client
                   </Link>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        cancelAdminBookingAction,
+                        b.id,
+                        "Réservation annulée",
+                      )
+                    }
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "h-12 w-full justify-center border-rose-500/35 text-rose-100 hover:bg-rose-500/10",
+                    )}
+                  >
+                    Annuler la réservation
+                  </button>
                 </div>
               )}
             </li>
