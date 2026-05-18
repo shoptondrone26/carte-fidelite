@@ -7,6 +7,7 @@ import type {
 } from "@supabase/supabase-js";
 
 import {
+  fetchClientLoyaltySnapshot,
   loyaltyChannelName,
   prependFreeUsedItem,
   prependHistoryItem,
@@ -39,6 +40,22 @@ export function useClientLoyaltyRealtime(
 
     const supabase = createClient();
     let channel: RealtimeChannel;
+    let disposed = false;
+    let timer: number | null = null;
+
+    const refetchLatest = async () => {
+      const next = await fetchClientLoyaltySnapshot(supabase, userId);
+      if (!disposed) {
+        setState(next);
+      }
+    };
+
+    const scheduleRefetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void refetchLatest();
+      }, 250);
+    };
 
     const onProfileUpdate = (
       payload: RealtimePostgresChangesPayload<ProfileRow>,
@@ -47,6 +64,7 @@ export function useClientLoyaltyRealtime(
       const nextUnlocks = row?.total_unlocks;
       if (typeof nextUnlocks !== "number") return;
       setState((prev) => ({ ...prev, totalUnlocks: nextUnlocks }));
+      scheduleRefetch();
     };
 
     const onHistoryInsert = (
@@ -77,6 +95,7 @@ export function useClientLoyaltyRealtime(
           freeUsedHistory: prependFreeUsedItem(prev.freeUsedHistory, freeRow),
         };
       });
+      scheduleRefetch();
     };
 
     channel = supabase
@@ -101,9 +120,23 @@ export function useClientLoyaltyRealtime(
         },
         onHistoryInsert,
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") scheduleRefetch();
+      });
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleRefetch();
+    };
+    const onOnline = () => scheduleRefetch();
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
 
     return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
       void supabase.removeChannel(channel);
     };
   }, [userId]);

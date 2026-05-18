@@ -8,6 +8,7 @@ import type {
 
 import {
   bookingsChannelName,
+  fetchClientBookingSnapshot,
   pendingFromBookingRow,
   type BookingRealtimeRow,
   type ClientPendingBooking,
@@ -17,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 type UseClientBookingsRealtimeOptions = {
   onAccepted?: () => void;
   onRefused?: () => void;
+  onCancelled?: () => void;
 };
 
 export function useClientBookingsRealtime(
@@ -42,20 +44,52 @@ export function useClientBookingsRealtime(
 
     const supabase = createClient();
     let channel: RealtimeChannel;
+    let disposed = false;
+    let timer: number | null = null;
+
+    const notifyStatusChange = (
+      prev: ClientPendingBooking | null,
+      next: ClientPendingBooking | null,
+    ) => {
+      if (!prev || !next || prev.id !== next.id || prev.status === next.status) {
+        return;
+      }
+      if (next.status === "accepted") {
+        optionsRef.current?.onAccepted?.();
+      }
+      if (next.status === "refused") {
+        optionsRef.current?.onRefused?.();
+      }
+      if (next.status === "cancelled") {
+        optionsRef.current?.onCancelled?.();
+      }
+    };
+
+    const applyNext = (next: ClientPendingBooking | null) => {
+      setPending((prev) => {
+        notifyStatusChange(prev, next);
+        return next;
+      });
+    };
+
+    const refetchLatest = async () => {
+      const next = await fetchClientBookingSnapshot(supabase, userId);
+      if (!disposed) {
+        applyNext(next);
+      }
+    };
+
+    const scheduleRefetch = () => {
+      if (timer) clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void refetchLatest();
+      }, 250);
+    };
 
     const handleRow = (row: BookingRealtimeRow | undefined) => {
       if (!row?.id) return;
-      setPending((prev) => {
-        const wasTracked = prev?.id === row.id;
-        const next = pendingFromBookingRow(row);
-        if (wasTracked && row.status === "accepted") {
-          optionsRef.current?.onAccepted?.();
-        }
-        if (wasTracked && row.status === "refused") {
-          optionsRef.current?.onRefused?.();
-        }
-        return next;
-      });
+      applyNext(pendingFromBookingRow(row));
+      scheduleRefetch();
     };
 
     const onInsert = (
@@ -92,9 +126,23 @@ export function useClientBookingsRealtime(
         },
         onUpdate,
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") scheduleRefetch();
+      });
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleRefetch();
+    };
+    const onOnline = () => scheduleRefetch();
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
 
     return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
       void supabase.removeChannel(channel);
     };
   }, [userId]);

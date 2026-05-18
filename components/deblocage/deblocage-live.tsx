@@ -36,6 +36,11 @@ export function DeblocageLive({
           description: "Vous pouvez envoyer une nouvelle demande.",
         });
       },
+      onCancelled: () => {
+        toast.info("Réservation annulée", {
+          description: "Vous pouvez envoyer une nouvelle demande.",
+        });
+      },
     },
   );
 

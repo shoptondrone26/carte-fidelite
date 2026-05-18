@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export type ClientBookingStatus = "pending" | "accepted" | "refused" | "cancelled";
 
 export type ClientPendingBooking = {
@@ -15,6 +17,13 @@ export type BookingRealtimeRow = {
   starts_at: string;
 };
 
+type ClientBookingRow = {
+  id: string;
+  status: string;
+  created_at: string;
+  starts_at: string;
+};
+
 export function bookingsChannelName(userId: string): string {
   return `bookings:${userId}`;
 }
@@ -22,6 +31,10 @@ export function bookingsChannelName(userId: string): string {
 export function pendingFromBookingRow(
   row: BookingRealtimeRow,
 ): ClientPendingBooking | null {
+  return clientBookingFromRow(row);
+}
+
+function clientBookingFromRow(row: ClientBookingRow): ClientPendingBooking | null {
   if (
     row.status !== "pending" &&
     row.status !== "accepted" &&
@@ -36,6 +49,52 @@ export function pendingFromBookingRow(
     starts_at: row.starts_at,
     status: row.status,
   };
+}
+
+export async function fetchClientBookingSnapshot(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ClientPendingBooking | null> {
+  const select = "id, created_at, starts_at, status";
+  const nowIso = new Date().toISOString();
+
+  const { data: pendingRow } = await supabase
+    .from("bookings")
+    .select(select)
+    .eq("profile_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (pendingRow) {
+    return clientBookingFromRow(pendingRow as ClientBookingRow);
+  }
+
+  const { data: acceptedRow } = await supabase
+    .from("bookings")
+    .select(select)
+    .eq("profile_id", userId)
+    .eq("status", "accepted")
+    .gt("starts_at", nowIso)
+    .order("starts_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (acceptedRow) {
+    return clientBookingFromRow(acceptedRow as ClientBookingRow);
+  }
+
+  const { data: latestRow } = await supabase
+    .from("bookings")
+    .select(select)
+    .eq("profile_id", userId)
+    .in("status", ["accepted", "refused", "cancelled"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return latestRow ? clientBookingFromRow(latestRow as ClientBookingRow) : null;
 }
 
 export function isActiveClientBooking(

@@ -58,6 +58,11 @@ export function DashboardLive({
           description: "Vous pouvez envoyer une nouvelle demande.",
         });
       },
+      onCancelled: () => {
+        toast.info("Réservation annulée", {
+          description: "Vous pouvez envoyer une nouvelle demande.",
+        });
+      },
     },
   );
   const [now, setNow] = useState(() => new Date());
