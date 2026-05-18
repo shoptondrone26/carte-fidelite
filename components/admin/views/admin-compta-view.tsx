@@ -26,8 +26,8 @@ export function AdminComptaView({
   return (
     <div className="flex flex-col gap-8 pb-4">
       <p className="text-sm text-muted-foreground">
-        Suivi des déblocages payants (150 € / 200 €). Données visibles
-        uniquement par les administrateurs.
+        Suivi du CA total : déblocages payants et Mode Fantôme. Données
+        visibles uniquement par les administrateurs.
       </p>
 
       <AccountingKpiGrid summary={summary} />

@@ -16,8 +16,8 @@ export function AccountingSecondaryStats({
         accent="amber"
       />
       <StatCard
-        label="Aujourd'hui"
-        value={summary.paidUnlocksToday}
+        label="Mode Fantôme réalisés"
+        value={summary.phantomModeCount}
         accent="emerald"
       />
       <StatCard

@@ -6,11 +6,14 @@ export type UnlockAmountEur = (typeof UNLOCK_AMOUNTS_EUR)[number];
 
 export type AccountingSummary = {
   revenueTotal: number;
+  revenueUnlocks: number;
+  revenuePhantom: number;
   revenueToday: number;
   revenueWeek: number;
   revenueMonth: number;
   paidUnlocksCount: number;
   paidUnlocksToday: number;
+  phantomModeCount: number;
   freeUsedCount: number;
   avgBasket: number;
 };
@@ -93,7 +96,7 @@ function groupByLocalDay(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalDateKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.unlocks += transactionCountDelta(row);
     map.set(key, cur);
   }
   return map;
@@ -105,7 +108,7 @@ function groupByLocalMonth(rows: AmountRow[]): Map<string, DayBucket> {
     const key = toLocalMonthKey(new Date(row.created_at));
     const cur = map.get(key) ?? { revenue: 0, unlocks: 0 };
     cur.revenue += row.amount_eur;
-    cur.unlocks += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.unlocks += transactionCountDelta(row);
     map.set(key, cur);
   }
   return map;
@@ -208,11 +211,40 @@ function sumAmounts(rows: { amount_eur: number }[]): number {
   return rows.reduce((acc, row) => acc + row.amount_eur, 0);
 }
 
-function netPaidUnlocks(rows: { amount_eur: number }[]): number {
+function isUnlockTransaction(row: { action_type: string }): boolean {
+  return (
+    row.action_type === "paid_unlock" ||
+    row.action_type === "unlock_cancellation"
+  );
+}
+
+function isPhantomModeTransaction(row: { action_type: string }): boolean {
+  return row.action_type === "phantom_mode";
+}
+
+function transactionCountDelta(row: {
+  amount_eur: number;
+  action_type: string;
+}): number {
+  if (!isUnlockTransaction(row)) return 0;
+  if (row.amount_eur > 0) return 1;
+  if (row.amount_eur < 0) return -1;
+  return 0;
+}
+
+function netPaidUnlocks(
+  rows: { amount_eur: number; action_type: string }[],
+): number {
   return rows.reduce(
-    (acc, row) => acc + (row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0),
+    (acc, row) => acc + transactionCountDelta(row),
     0,
   );
+}
+
+function completedPhantomModes(rows: AmountRow[]): number {
+  return rows.filter(
+    (row) => isPhantomModeTransaction(row) && row.amount_eur > 0,
+  ).length;
 }
 
 function filterSince(rows: AmountRow[], sinceIso: string): AmountRow[] {
@@ -259,19 +291,26 @@ export async function fetchAccountingSummary(
   const weekRows = filterSince(rows, weekStart);
   const monthRows = filterSince(rows, monthStart);
 
-  const revenueTotal = sumAmounts(rows);
+  const unlockRows = rows.filter(isUnlockTransaction);
+  const phantomRows = rows.filter(isPhantomModeTransaction);
+  const revenueUnlocks = sumAmounts(unlockRows);
+  const revenuePhantom = sumAmounts(phantomRows);
+  const revenueTotal = revenueUnlocks + revenuePhantom;
   const paidUnlocksCount = Math.max(0, netPaidUnlocks(rows));
 
   return {
     revenueTotal,
+    revenueUnlocks,
+    revenuePhantom,
     revenueToday: sumAmounts(todayRows),
     revenueWeek: sumAmounts(weekRows),
     revenueMonth: sumAmounts(monthRows),
     paidUnlocksCount,
     paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
+    phantomModeCount: completedPhantomModes(rows),
     freeUsedCount: freeUsedResult.count ?? 0,
     avgBasket:
-      paidUnlocksCount > 0 ? Math.round(revenueTotal / paidUnlocksCount) : 0,
+      paidUnlocksCount > 0 ? Math.round(revenueUnlocks / paidUnlocksCount) : 0,
   };
 }
 
@@ -329,7 +368,7 @@ export async function fetchClientSpendStats(
 ): Promise<ClientSpendStats> {
   const { data, error } = await supabase
     .from("accounting_transactions")
-    .select("amount_eur")
+    .select("amount_eur, action_type")
     .eq("profile_id", profileId);
 
   if (error) throw error;
@@ -347,7 +386,7 @@ export async function fetchSpendByClient(
 ): Promise<Record<string, ClientSpendStats>> {
   const { data, error } = await supabase
     .from("accounting_transactions")
-    .select("profile_id, amount_eur");
+    .select("profile_id, amount_eur, action_type");
 
   if (error) throw error;
 
@@ -359,8 +398,7 @@ export async function fetchSpendByClient(
       freeUsedCount: 0,
     };
     current.totalSpentEur += row.amount_eur;
-    current.paidUnlocksCount +=
-      row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    current.paidUnlocksCount += transactionCountDelta(row);
     map[row.profile_id] = current;
   }
   for (const stats of Object.values(map)) {
@@ -375,7 +413,7 @@ export async function fetchTopClientsByRevenue(
 ): Promise<TopClientByRevenue[]> {
   const { data: txRows, error: txError } = await supabase
     .from("accounting_transactions")
-    .select("profile_id, amount_eur");
+    .select("profile_id, amount_eur, action_type");
 
   if (txError) throw txError;
 
@@ -383,7 +421,7 @@ export async function fetchTopClientsByRevenue(
   for (const row of txRows ?? []) {
     const cur = totals.get(row.profile_id) ?? { sum: 0, count: 0 };
     cur.sum += row.amount_eur;
-    cur.count += row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0;
+    cur.count += transactionCountDelta(row);
     totals.set(row.profile_id, cur);
   }
 

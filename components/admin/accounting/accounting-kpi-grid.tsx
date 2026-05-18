@@ -9,18 +9,18 @@ export function AccountingKpiGrid({ summary }: AccountingKpiGridProps) {
   return (
     <section className="grid grid-cols-2 gap-3">
       <MoneyStatCard
-        label="Chiffre total"
+        label="CA total"
         value={formatEur(summary.revenueTotal)}
         accent="amber"
       />
       <MoneyStatCard
-        label="Aujourd'hui"
-        value={formatEur(summary.revenueToday)}
+        label="CA déblocages"
+        value={formatEur(summary.revenueUnlocks)}
         accent="emerald"
       />
       <MoneyStatCard
-        label="Cette semaine"
-        value={formatEur(summary.revenueWeek)}
+        label="CA Mode Fantôme"
+        value={formatEur(summary.revenuePhantom)}
         accent="violet"
       />
       <MoneyStatCard

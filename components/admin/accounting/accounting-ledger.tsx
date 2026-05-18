@@ -3,6 +3,7 @@ import { formatEur, type AccountingLedgerEntry } from "@/lib/admin/accounting";
 const actionLabelFr: Record<string, string> = {
   paid_unlock: "Déblocage payant",
   unlock_cancellation: "Annulation déblocage",
+  phantom_mode: "Mode Fantôme",
 };
 
 function formatActionType(actionType: string): string {

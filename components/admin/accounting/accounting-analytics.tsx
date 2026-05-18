@@ -18,7 +18,7 @@ export function AccountingAnalyticsSection({
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Évolution du chiffre d&apos;affaires et des déblocages payants.
+          Évolution du chiffre d&apos;affaires total et des déblocages payants.
         </p>
       </div>
 
