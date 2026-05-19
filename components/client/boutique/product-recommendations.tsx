@@ -40,11 +40,13 @@ export function ProductRecommendations({
                   toast.error("Produit en rupture");
                   return;
                 }
-                const ok = addProduct(product);
+                const ok = addProduct(product, 1);
                 if (ok) {
                   toast.success("Ajouté au panier", {
                     description: product.name,
                   });
+                } else {
+                  toast.message("Quantité maximale ou stock atteint");
                 }
               }}
             />

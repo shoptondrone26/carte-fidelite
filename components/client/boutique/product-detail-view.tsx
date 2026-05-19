@@ -7,8 +7,9 @@ import { toast } from "sonner";
 
 import { ProductGallery } from "@/components/client/boutique/product-gallery";
 import { ProductRecommendations } from "@/components/client/boutique/product-recommendations";
+import { ShopCartTrigger } from "@/components/client/boutique/shop-cart-trigger";
 import { buttonVariants } from "@/components/ui/button";
-import { useShopCart } from "@/lib/boutique/cart";
+import { useShopCart, useShopCartUi } from "@/lib/boutique/cart";
 import { shopCategoryLabel } from "@/lib/boutique/categories";
 import { productImageUrls } from "@/lib/boutique/images";
 import { formatShopPrice } from "@/lib/boutique/products";
@@ -24,33 +25,37 @@ export function ProductDetailView({
   product,
   recommendations,
 }: ProductDetailViewProps) {
-  const { addProduct, hasProduct } = useShopCart();
+  const { addProduct, getQuantity } = useShopCart();
+  const { openCart } = useShopCartUi();
   const [addedFlash, setAddedFlash] = useState(false);
   const outOfStock = product.stock <= 0;
-  const inCart = hasProduct(product.id);
+  const qtyInCart = getQuantity(product.id);
   const images = productImageUrls(product);
 
   function onAddToCart() {
     if (outOfStock) return;
-    const ok = addProduct(product);
+    const ok = addProduct(product, 1);
     if (ok) {
       setAddedFlash(true);
       toast.success("Ajouté au panier", { description: product.name });
       window.setTimeout(() => setAddedFlash(false), 1200);
-    } else if (inCart) {
-      toast.message("Déjà dans le panier");
+    } else {
+      toast.message("Stock maximum atteint");
     }
   }
 
   return (
     <div className="flex min-w-0 flex-col gap-8 pb-4 animate-in fade-in duration-300">
-      <Link
-        href="/boutique"
-        className="inline-flex w-fit items-center gap-2 text-xs font-semibold text-amber-200/80 transition hover:text-amber-100"
-      >
-        <ArrowLeft className="size-3.5" aria-hidden />
-        Boutique
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/boutique"
+          className="inline-flex w-fit items-center gap-2 text-xs font-semibold text-amber-200/80 transition hover:text-amber-100"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden />
+          Boutique
+        </Link>
+        <ShopCartTrigger />
+      </div>
 
       <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-10">
         <ProductGallery images={images} productName={product.name} />
@@ -70,10 +75,14 @@ export function ProductDetailView({
 
           <div className="flex flex-wrap items-center gap-2">
             <AvailabilityBadge outOfStock={outOfStock} stock={product.stock} />
-            {inCart ? (
-              <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                Dans le panier
-              </span>
+            {qtyInCart > 0 ? (
+              <button
+                type="button"
+                onClick={openCart}
+                className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100 hover:bg-amber-500/20"
+              >
+                {qtyInCart} au panier
+              </button>
             ) : null}
           </div>
 
@@ -110,11 +119,11 @@ export function ProductDetailView({
             )}
           >
             <ShoppingBag className="size-4" aria-hidden />
-            {outOfStock ? "Rupture" : inCart ? "Ajouter encore" : "Ajouter au panier"}
+            {outOfStock ? "Rupture" : "Ajouter au panier"}
           </button>
 
           <p className="text-center text-[11px] text-zinc-500">
-            Paiement manuel sur Snapchat · commande individuelle pour l’instant
+            Paiement manuel sur Snapchat après envoi de la demande
           </p>
         </div>
       </div>

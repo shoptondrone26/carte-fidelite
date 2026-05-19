@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ShoppingBag } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { BoutiqueCatalog } from "@/components/client/boutique/boutique-catalog";
 import { BoutiqueCategoryFilters } from "@/components/client/boutique/boutique-category-filters";
 import { BoutiqueOrdersPanel } from "@/components/client/boutique/boutique-orders-panel";
+import { ShopCartTrigger } from "@/components/client/boutique/shop-cart-trigger";
 import { buttonVariants } from "@/components/ui/button";
 import { useClientShopOrdersRealtime } from "@/hooks/use-client-shop-orders-realtime";
-import { useShopCart } from "@/lib/boutique/cart";
 import type { ShopCatalogFilterId } from "@/lib/boutique/categories";
 import type { ShopOrder } from "@/lib/boutique/orders";
 import type { ShopProduct } from "@/lib/boutique/types";
@@ -27,8 +27,15 @@ export function BoutiqueLive({
   userId,
 }: BoutiqueLiveProps) {
   const { orders, refetch } = useClientShopOrdersRealtime(initialOrders, userId);
-  const { count: cartCount } = useShopCart();
   const [filter, setFilter] = useState<ShopCatalogFilterId>("all");
+
+  useEffect(() => {
+    const onOrdersChanged = () => {
+      void refetch();
+    };
+    window.addEventListener("shop:orders-changed", onOrdersChanged);
+    return () => window.removeEventListener("shop:orders-changed", onOrdersChanged);
+  }, [refetch]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,20 +46,10 @@ export function BoutiqueLive({
             className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-amber-100/40 to-transparent"
           />
           <p className="text-sm text-zinc-400">
-            Catalogue membre — ajoutez au panier puis finalisez sur Snapchat.
+            Catalogue membre — ajoutez au panier puis envoyez votre demande.
           </p>
         </section>
-        {cartCount > 0 ? (
-          <div
-            className="flex shrink-0 flex-col items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-500/10 px-3 py-2"
-            title="Articles dans le panier"
-          >
-            <ShoppingBag className="size-5 text-amber-200" aria-hidden />
-            <span className="mt-0.5 text-[10px] font-bold tabular-nums text-amber-100">
-              {cartCount}
-            </span>
-          </div>
-        ) : null}
+        <ShopCartTrigger />
       </div>
 
       <BoutiqueCategoryFilters value={filter} onChange={setFilter} />
