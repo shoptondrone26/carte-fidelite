@@ -86,32 +86,12 @@ export function ShopCartDrawer({
         return;
       }
 
-      if (res.partial && res.failures.length > 0) {
-        const failedIds = new Set(res.failures.map((f) => f.productId));
-        for (const line of items) {
-          if (!failedIds.has(line.productId)) {
-            removeProduct(line.productId);
-          }
-        }
-        toast.warning(
-          `${res.created} demande(s) envoyée(s)`,
-          {
-            description: `Échec : ${res.failures.map((f) => f.name).join(", ")}`,
-          },
-        );
-      } else {
-        toast.success(
-          res.created > 1
-            ? `${res.created} demandes envoyées`
-            : "Demande envoyée",
-          {
-            description:
-              "Paiement manuel sur Snapchat avec ShopTonDrone.",
-          },
-        );
-        clearCart();
-        onOpenChange(false);
-      }
+      toast.success("Votre demande est envoyée", {
+        description:
+          "Rendez-vous sur Snapchat pour finaliser le paiement avec ShopTonDrone.",
+      });
+      clearCart();
+      onOpenChange(false);
 
       router.refresh();
       onOrdersChanged?.();

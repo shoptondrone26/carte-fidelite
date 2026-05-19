@@ -34,7 +34,7 @@ function mapRpcOrder(row: Record<string, unknown> | null): ShopOrder | undefined
   return {
     id: String(row.id),
     profile_id: String(row.profile_id),
-    product_id: String(row.product_id),
+    product_id: row.product_id != null ? String(row.product_id) : null,
     status: row.status as ShopOrder["status"],
     delivery_method: row.delivery_method as ShopDeliveryMethod,
     quantity: Number(row.quantity),
@@ -43,6 +43,7 @@ function mapRpcOrder(row: Record<string, unknown> | null): ShopOrder | undefined
     product_name: String(row.product_name),
     product_image_url: (row.product_image_url as string | null) ?? null,
     admin_note: (row.admin_note as string | null) ?? null,
+    tracking_number: (row.tracking_number as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
     expires_at: String(row.expires_at),
@@ -55,15 +56,16 @@ function mapRpcOrder(row: Record<string, unknown> | null): ShopOrder | undefined
     expired_at: (row.expired_at as string | null) ?? null,
     handled_by: (row.handled_by as string | null) ?? null,
     stock_reserved: Boolean(row.stock_reserved),
+    items: [],
   };
 }
 
 function mapShopOrderRpcError(error: { message: string }): string {
   if (error.message.includes("insufficient_stock")) {
-    return "Produit en rupture de stock.";
+    return "Stock insuffisant pour un ou plusieurs produits.";
   }
   if (error.message.includes("active_order_exists")) {
-    return "Une commande est déjà en cours pour ce produit.";
+    return "Une commande est déjà en cours pour un produit de votre panier.";
   }
   if (error.message.includes("product_not_found")) {
     return "Produit indisponible.";
@@ -73,6 +75,9 @@ function mapShopOrderRpcError(error: { message: string }): string {
   }
   if (error.message.includes("invalid_quantity")) {
     return "Quantité invalide.";
+  }
+  if (error.message.includes("empty_cart") || error.message.includes("invalid_lines")) {
+    return "Panier invalide.";
   }
   return error.message;
 }
@@ -116,12 +121,7 @@ export async function createShopOrderAction(
 }
 
 export type SubmitShopCartResult =
-  | {
-      ok: true;
-      created: number;
-      partial?: boolean;
-      failures: { productId: string; name: string; error: string }[];
-    }
+  | { ok: true; orderId: string }
   | { ok: false; error: string };
 
 export async function submitShopCartOrdersAction(
@@ -137,23 +137,15 @@ export async function submitShopCartOrdersAction(
     return { ok: false, error: "Panier vide." };
   }
 
-  const lines: { productId: string; quantity: number; name: string }[] = [];
+  const lines: { product_id: string; quantity: number }[] = [];
   for (const raw of rawLines) {
     const parsed = cartLineSchema.safeParse(raw);
     if (!parsed.success) {
       return { ok: false, error: "Panier invalide." };
     }
-    const name =
-      typeof raw === "object" &&
-      raw !== null &&
-      "name" in raw &&
-      typeof (raw as { name: unknown }).name === "string"
-        ? (raw as { name: string }).name
-        : "Produit";
     lines.push({
-      productId: parsed.data.productId,
+      product_id: parsed.data.productId,
       quantity: parsed.data.quantity,
-      name,
     });
   }
 
@@ -166,46 +158,21 @@ export async function submitShopCartOrdersAction(
     return { ok: false, error: "Connexion requise." };
   }
 
-  const failures: { productId: string; name: string; error: string }[] = [];
-  let created = 0;
+  const { data, error } = await supabase.rpc("create_shop_cart_order", {
+    p_lines: lines,
+    p_delivery_method: delivery.data,
+  });
 
-  for (const line of lines) {
-    const { error } = await supabase.rpc("create_shop_order", {
-      p_product_id: line.productId,
-      p_delivery_method: delivery.data,
-      p_quantity: line.quantity,
-    });
-
-    if (error) {
-      failures.push({
-        productId: line.productId,
-        name: line.name,
-        error: mapShopOrderRpcError(error),
-      });
-      continue;
-    }
-    created += 1;
-  }
-
-  if (created === 0) {
-    return {
-      ok: false,
-      error:
-        failures[0]?.error ??
-        "Impossible d’envoyer la demande. Vérifiez le stock et les commandes en cours.",
-    };
+  if (error) {
+    return { ok: false, error: mapShopOrderRpcError(error) };
   }
 
   revalidatePath("/boutique");
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
 
-  return {
-    ok: true,
-    created,
-    partial: failures.length > 0,
-    failures,
-  };
+  const order = mapRpcOrder(data as Record<string, unknown>);
+  return { ok: true, orderId: order?.id ?? String((data as { id: string }).id) };
 }
 
 export async function cancelShopOrderAction(
@@ -250,6 +217,7 @@ export async function adminUpdateShopOrderStatusAction(
   rawOrderId: unknown,
   rawStatus: unknown,
   rawAdminNote?: unknown,
+  rawTrackingNumber?: unknown,
 ): Promise<ShopOrderActionResult> {
   const orderId = orderIdSchema.safeParse(rawOrderId);
   const status = adminStatusSchema.safeParse(rawStatus);
@@ -268,11 +236,14 @@ export async function adminUpdateShopOrderStatusAction(
 
   const adminNote =
     typeof rawAdminNote === "string" ? rawAdminNote.trim() : null;
+  const trackingNumber =
+    typeof rawTrackingNumber === "string" ? rawTrackingNumber.trim() : null;
 
   const { error } = await supabase.rpc("admin_update_shop_order_status", {
     p_order_id: orderId.data,
     p_status: status.data,
     p_admin_note: adminNote || null,
+    p_tracking_number: trackingNumber || null,
   });
 
   if (error) {

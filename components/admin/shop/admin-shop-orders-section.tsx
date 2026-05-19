@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { adminUpdateShopOrderStatusAction } from "@/actions/shop-orders";
@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { formatShopPrice } from "@/lib/boutique/products";
 import {
   shopDeliveryLabelFr,
+  shopOrderLineItems,
   shopOrderStatusLabelFr,
   type AdminShopOrder,
   type ShopOrderStatus,
@@ -45,14 +46,26 @@ function statusTone(status: ShopOrderStatus): string {
 
 export function AdminShopOrdersSection({ orders }: AdminShopOrdersSectionProps) {
   const [busy, start] = useTransition();
+  const [trackingByOrder, setTrackingByOrder] = useState<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        orders.map((o) => [o.id, o.tracking_number ?? ""]),
+      ),
+  );
 
   function updateStatus(
     orderId: string,
     status: AdminShopOrderActionStatus,
     message: string,
+    trackingNumber?: string,
   ) {
     start(async () => {
-      const res = await adminUpdateShopOrderStatusAction(orderId, status);
+      const res = await adminUpdateShopOrderStatusAction(
+        orderId,
+        status,
+        undefined,
+        trackingNumber,
+      );
       if (res.ok) {
         toast.success(message);
       } else {
@@ -85,63 +98,115 @@ export function AdminShopOrdersSection({ orders }: AdminShopOrdersSectionProps) 
         <ul className="flex flex-col gap-3">
           {orders.map((order) => {
             const profile = order.profiles;
+            const lines = shopOrderLineItems(order);
+            const tracking =
+              trackingByOrder[order.id] ?? order.tracking_number ?? "";
+
             return (
               <li
                 key={order.id}
                 className="flex flex-col gap-4 rounded-2xl border border-amber-200/15 bg-linear-to-br from-amber-500/10 via-card/35 to-black/20 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {profile?.full_name?.trim() || profile?.email || "Client"}
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {profile?.full_name?.trim() || profile?.email || "Client"}
+                    </p>
+                    {profile?.email ? (
+                      <p className="text-xs text-muted-foreground">
+                        {profile.email}
                       </p>
-                      {profile?.email ? (
-                        <p className="text-xs text-muted-foreground">
-                          {profile.email}
-                        </p>
-                      ) : null}
-                      {profile?.snap ? (
-                        <p className="text-xs text-amber-100/80">{profile.snap}</p>
-                      ) : null}
-                      <p className="mt-2 text-sm font-medium text-white">
-                        {order.product_name}
-                      </p>
-                      <p className="text-sm tabular-nums text-amber-100">
-                        {formatShopPrice(order.total_price_eur)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {shopDeliveryLabelFr[order.delivery_method]}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Demandé le{" "}
-                        {new Date(order.created_at).toLocaleString("fr-FR", {
+                    ) : null}
+                    {profile?.snap ? (
+                      <p className="text-xs text-amber-100/80">{profile.snap}</p>
+                    ) : null}
+
+                    <ul className="mt-3 space-y-1.5">
+                      {lines.map((line) => (
+                        <li
+                          key={line.id}
+                          className="flex items-baseline justify-between gap-2 text-sm"
+                        >
+                          <span className="min-w-0 text-white">
+                            {line.product_name}
+                            {line.quantity > 1 ? (
+                              <span className="text-zinc-400">
+                                {" "}
+                                × {line.quantity}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-amber-100/90">
+                            {formatShopPrice(line.line_total_eur)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="mt-2 text-sm font-semibold tabular-nums text-amber-100">
+                      Total {formatShopPrice(order.total_price_eur)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {shopDeliveryLabelFr[order.delivery_method]}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Demandé le{" "}
+                      {new Date(order.created_at).toLocaleString("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {order.status === "payment_pending" ? (
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        Expire le{" "}
+                        {new Date(order.expires_at).toLocaleString("fr-FR", {
                           day: "numeric",
                           month: "short",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </p>
-                      {order.status === "payment_pending" ? (
-                        <p className="mt-1 text-[11px] text-zinc-500">
-                          Expire le{" "}
-                          {new Date(order.expires_at).toLocaleString("fr-FR", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-                        statusTone(order.status),
-                      )}
-                    >
-                      {shopOrderStatusLabelFr[order.status]}
-                    </span>
+                    ) : null}
+                    {order.admin_note ? (
+                      <p className="mt-2 rounded-lg border border-white/10 bg-black/25 px-2.5 py-1.5 text-xs text-zinc-300">
+                        Note : {order.admin_note}
+                      </p>
+                    ) : null}
+                    {order.tracking_number ? (
+                      <p className="mt-1 text-xs text-violet-200/90">
+                        Suivi : {order.tracking_number}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                      statusTone(order.status),
+                    )}
+                  >
+                    {shopOrderStatusLabelFr[order.status]}
+                  </span>
                 </div>
+
+                {["preparing", "shipped", "paid"].includes(order.status) ? (
+                  <label className="block text-xs text-zinc-400">
+                    N° de suivi (optionnel)
+                    <input
+                      type="text"
+                      value={tracking}
+                      onChange={(e) =>
+                        setTrackingByOrder((prev) => ({
+                          ...prev,
+                          [order.id]: e.target.value,
+                        }))
+                      }
+                      placeholder="Chronopost, etc."
+                      className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+                    />
+                  </label>
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-2">
                   {order.status === "payment_pending" ? (
@@ -200,7 +265,12 @@ export function AdminShopOrdersSection({ orders }: AdminShopOrdersSectionProps) 
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        updateStatus(order.id, "shipped", "Commande expédiée")
+                        updateStatus(
+                          order.id,
+                          "shipped",
+                          "Commande expédiée",
+                          tracking || undefined,
+                        )
                       }
                       className={cn(
                         buttonVariants({ variant: "default", size: "lg" }),
