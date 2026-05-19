@@ -8,21 +8,16 @@ export type BoutiqueOrderStatus =
   | "delivered"
   | "cancelled";
 
-export type BoutiqueProduct = {
+export type ShopProduct = {
   id: string;
-  slug: string;
   name: string;
   description: string | null;
   price_eur: number;
+  stock: number;
   image_url: string | null;
+  category: string;
   is_active: boolean;
-};
-
-export type BoutiqueOrder = {
-  id: string;
-  profile_id: string;
-  status: BoutiqueOrderStatus;
-  total_eur: number;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 };
@@ -39,3 +34,9 @@ export type BoutiqueModuleId =
   | "orders"
   | "tracking"
   | "history";
+
+export type ProductsByCategory = {
+  category: string;
+  label: string;
+  products: ShopProduct[];
+};

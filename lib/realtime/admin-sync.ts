@@ -5,7 +5,8 @@ export type AdminRealtimeSubscription = {
     | "accounting_transactions"
     | "profiles"
     | "analytics_events"
-    | "phantom_requests";
+    | "phantom_requests"
+    | "shop_products";
   event: "INSERT" | "UPDATE" | "DELETE" | "*";
 };
 
@@ -42,6 +43,10 @@ export const ADMIN_HOME_SYNC: AdminRealtimeSubscription[] = [
   ...ADMIN_REQUESTS_SYNC,
   { table: "profiles", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
+];
+
+export const ADMIN_BOUTIQUE_SYNC: AdminRealtimeSubscription[] = [
+  { table: "shop_products", event: "*" },
 ];
 
 export const ADMIN_ANALYSE_SYNC: AdminRealtimeSubscription[] = [

@@ -5,6 +5,7 @@ import {
   History,
   LayoutDashboard,
   Settings,
+  ShoppingBag,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +47,13 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     shortLabel: "Compta",
     description: "Suivi financier",
     icon: Calculator,
+  },
+  {
+    href: "/admin/boutique",
+    label: "Boutique",
+    shortLabel: "Boutique",
+    description: "Catalogue produits",
+    icon: ShoppingBag,
   },
   {
     href: "/admin/history",
