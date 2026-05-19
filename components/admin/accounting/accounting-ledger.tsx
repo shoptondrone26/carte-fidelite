@@ -4,6 +4,7 @@ const actionLabelFr: Record<string, string> = {
   paid_unlock: "Déblocage payant",
   unlock_cancellation: "Annulation déblocage",
   phantom_mode: "Mode Fantôme",
+  phantom_mode_cancellation: "Annulation Mode Fantôme",
 };
 
 function formatActionType(actionType: string): string {

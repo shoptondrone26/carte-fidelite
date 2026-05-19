@@ -7,6 +7,7 @@ import type { AdminClientCardData } from "@/components/admin/admin-client-card";
 import type { AdminHistorySnippet } from "@/components/admin/admin-client-card";
 import type { AdminStats } from "@/components/admin/admin-types";
 import { fetchSpendByClient } from "@/lib/admin/accounting";
+import type { PhantomRequestStatus } from "@/lib/phantom/requests";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type BookingQueryRow = {
@@ -38,6 +39,22 @@ type HistoryRow = {
   event_type: string;
   created_at: string;
 };
+
+type ClientPhantomRequestRow = {
+  id: string;
+  profile_id: string;
+  status: PhantomRequestStatus;
+  amount_eur: number;
+  created_at: string;
+};
+
+const CANCELLABLE_PHANTOM_STATUSES: PhantomRequestStatus[] = [
+  "accepted",
+  "payment_pending",
+  "paid",
+  "in_progress",
+  "completed",
+];
 
 export type AdminHistoryEntry = {
   id: string;
@@ -240,8 +257,24 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
     .select("subject_id")
     .eq("event_type", "free_used");
 
+  const { data: phantomRaw, error: phantomError } = await supabase
+    .from("phantom_requests")
+    .select("id, profile_id, status, amount_eur, created_at")
+    .in("status", CANCELLABLE_PHANTOM_STATUSES)
+    .order("created_at", { ascending: false });
+
+  if (phantomError) {
+    console.error("fetchAdminClientPhantomRequests", phantomError.message);
+  }
+
   const freeUsedCounts = buildFreeUsedCounts(freeUsedRaw);
   const spendByClient = await fetchSpendByClient(supabase);
+  const phantomByClient = new Map<string, ClientPhantomRequestRow>();
+  for (const request of (phantomRaw as ClientPhantomRequestRow[] | null) ?? []) {
+    if (!phantomByClient.has(request.profile_id)) {
+      phantomByClient.set(request.profile_id, request);
+    }
+  }
 
   const addressBook: AdminClientCardData[] = (
     (addressBookRaw as AdminClientRow[] | null) ?? []
@@ -257,6 +290,7 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
       free_used_count: freeUsed,
       total_spent_eur: spend?.totalSpentEur ?? 0,
       paid_unlocks_count: spend?.paidUnlocksCount ?? 0,
+      phantom_request: phantomByClient.get(c.id) ?? null,
     };
   });
   const historyByClient = buildHistoryByClient(

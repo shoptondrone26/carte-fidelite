@@ -6,6 +6,7 @@ export {
 export { validateUnlockAction } from "./admin-unlock";
 export { markFreeUsedAction } from "./admin-free";
 export {
+  cancelPhantomRequestAction,
   completePhantomRequestAction,
   createPhantomRequestAction,
   updatePhantomRequestStatusAction,

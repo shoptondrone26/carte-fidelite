@@ -9,10 +9,16 @@ import {
   undoLastUnlockAction,
   validateUnlockAction,
 } from "@/actions/admin-unlock";
+import { cancelPhantomRequestAction } from "@/actions/phantom";
 import { ValidateUnlockAmountDialog } from "@/components/admin/validate-unlock-amount-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { formatEur, type UnlockAmountEur } from "@/lib/admin/accounting";
 import { formatHistoryEventType } from "@/lib/history/labels";
+import {
+  PHANTOM_AMOUNT_EUR,
+  phantomStatusLabelFr,
+  type PhantomRequestStatus,
+} from "@/lib/phantom/requests";
 import {
   getFreeAvailable,
   getFreeEarned,
@@ -40,6 +46,12 @@ export type AdminClientCardData = {
   /** Données comptables — admin uniquement */
   total_spent_eur: number;
   paid_unlocks_count: number;
+  phantom_request: {
+    id: string;
+    status: PhantomRequestStatus;
+    amount_eur: number;
+    created_at: string;
+  } | null;
 };
 
 type AdminClientCardProps = {
@@ -52,6 +64,7 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
   const [busy, start] = useTransition();
   const [amountOpen, setAmountOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
+  const [cancelPhantomOpen, setCancelPhantomOpen] = useState(false);
   const total = client.total_unlocks ?? 0;
   const vip = getVipLevel(total);
   const cycle = getCycleProgress(total);
@@ -60,6 +73,7 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
   const freeAvailable = getFreeAvailable(freeEarned, freeUsed);
   const displayName =
     client.full_name?.trim() || client.email?.trim() || "Client";
+  const cancellablePhantom = client.phantom_request;
 
   function onConfirmAmount(amount: UnlockAmountEur) {
     start(async () => {
@@ -97,6 +111,26 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
         setUndoOpen(false);
         toast.success("Dernier déblocage annulé", {
           description: `${displayName} : -1 tampon · ${formatEur(res.amountEur)} corrigé.`,
+        });
+        router.refresh();
+      } else {
+        toast.error(res.error ?? "Erreur");
+      }
+    });
+  }
+
+  function onConfirmCancelPhantom() {
+    if (!cancellablePhantom) return;
+    start(async () => {
+      const res = await cancelPhantomRequestAction(cancellablePhantom.id);
+      if (res.ok) {
+        setCancelPhantomOpen(false);
+        toast.success("Mode Fantôme annulé", {
+          description: `${displayName} : audit conservé${
+            cancellablePhantom.status === "completed"
+              ? " · contre-écriture comptable ajoutée si nécessaire"
+              : ""
+          }.`,
         });
         router.refresh();
       } else {
@@ -217,6 +251,19 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
           >
             Annuler le dernier déblocage
           </button>
+          {cancellablePhantom ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setCancelPhantomOpen(true)}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-12 w-full justify-center border-amber-500/40 text-amber-100 hover:bg-amber-500/10 disabled:opacity-45",
+              )}
+            >
+              Annuler Mode Fantôme
+            </button>
+          ) : null}
         </div>
 
         {history.length > 0 ? (
@@ -260,7 +307,113 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
         busy={busy}
         onConfirm={onConfirmUndo}
       />
+      <CancelPhantomDialog
+        open={cancelPhantomOpen}
+        onOpenChange={setCancelPhantomOpen}
+        clientName={displayName}
+        request={cancellablePhantom}
+        busy={busy}
+        onConfirm={onConfirmCancelPhantom}
+      />
     </article>
+  );
+}
+
+function CancelPhantomDialog({
+  open,
+  onOpenChange,
+  clientName,
+  request,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientName: string;
+  request: AdminClientCardData["phantom_request"];
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !request) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-200 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-phantom-title"
+      onClick={() => !busy && onOpenChange(false)}
+    >
+      <div
+        className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+
+        <div className="space-y-4">
+          <div>
+            <p
+              id="cancel-phantom-title"
+              className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/90"
+            >
+              Annulation Mode Fantôme
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-white">
+              Annuler le Mode Fantôme ?
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              Cette action concerne{" "}
+              <span className="font-medium text-white">{clientName}</span>.
+              Elle conserve la demande, l’historique et les écritures
+              comptables.
+            </p>
+          </div>
+
+          <ul className="space-y-2 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-sm text-amber-50/90">
+            <li>Statut actuel : {phantomStatusLabelFr[request.status]}</li>
+            <li>Trace historique ajoutée : Mode Fantôme annulé</li>
+            <li>
+              Si {PHANTOM_AMOUNT_EUR}€ ont déjà été comptabilisés, une
+              contre-écriture de -{PHANTOM_AMOUNT_EUR}€ sera ajoutée.
+            </li>
+          </ul>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-12 justify-center",
+              )}
+            >
+              Fermer
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onConfirm}
+              className={cn(
+                buttonVariants({ variant: "default", size: "lg" }),
+                "h-12 justify-center bg-amber-500 text-zinc-950 hover:bg-amber-400",
+              )}
+            >
+              Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

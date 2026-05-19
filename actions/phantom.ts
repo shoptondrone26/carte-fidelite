@@ -150,3 +150,53 @@ export async function completePhantomRequestAction(
 
   return { ok: true };
 }
+
+export async function cancelPhantomRequestAction(
+  rawRequestId: unknown,
+): Promise<PhantomActionResult> {
+  const parsedId = requestIdSchema.safeParse(rawRequestId);
+  if (!parsedId.success) {
+    return { ok: false, error: "Demande Mode Fantôme invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await getIsAdmin(supabase, user.id))) {
+    return { ok: false, error: "Accès réservé aux administrateurs." };
+  }
+
+  const { error } = await supabase.rpc("cancel_phantom_request", {
+    p_request_id: parsedId.data,
+  });
+
+  if (error) {
+    if (error.message.includes("already_cancelled")) {
+      return { ok: false, error: "Ce Mode Fantôme est déjà annulé." };
+    }
+    if (error.message.includes("invalid_state")) {
+      return {
+        ok: false,
+        error: "Cette demande Mode Fantôme ne peut pas être annulée ici.",
+      };
+    }
+    if (error.message.includes("not_found")) {
+      return { ok: false, error: "Demande introuvable." };
+    }
+    if (error.message.includes("forbidden")) {
+      return { ok: false, error: "Action non autorisée." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/clients");
+  revalidatePath("/admin/compta");
+  revalidatePath("/admin/history");
+  revalidatePath("/admin/reservations");
+  revalidatePath("/dashboard");
+
+  return { ok: true };
+}

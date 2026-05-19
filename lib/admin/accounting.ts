@@ -219,7 +219,10 @@ function isUnlockTransaction(row: { action_type: string }): boolean {
 }
 
 function isPhantomModeTransaction(row: { action_type: string }): boolean {
-  return row.action_type === "phantom_mode";
+  return (
+    row.action_type === "phantom_mode" ||
+    row.action_type === "phantom_mode_cancellation"
+  );
 }
 
 function transactionCountDelta(row: {
@@ -242,9 +245,16 @@ function netPaidUnlocks(
 }
 
 function completedPhantomModes(rows: AmountRow[]): number {
-  return rows.filter(
-    (row) => isPhantomModeTransaction(row) && row.amount_eur > 0,
-  ).length;
+  return Math.max(
+    0,
+    rows
+      .filter(isPhantomModeTransaction)
+      .reduce(
+        (count, row) =>
+          count + (row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0),
+        0,
+      ),
+  );
 }
 
 function filterSince(rows: AmountRow[], sinceIso: string): AmountRow[] {
