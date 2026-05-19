@@ -15,6 +15,14 @@ export const historyEventLabelFr: Record<string, string> = {
   phantom_cancelled: "Mode Fantôme annulé",
   phantom_refused: "Mode Fantôme refusé",
   phantom_mode_updated: "Mode Fantôme mis à jour",
+  shop_order_payment_pending: "Commande boutique — paiement en attente",
+  shop_order_paid: "Commande boutique — payée",
+  shop_order_preparing: "Commande boutique — en préparation",
+  shop_order_shipped: "Commande boutique — expédiée",
+  shop_order_completed: "Commande boutique — terminée",
+  shop_order_cancelled: "Commande boutique annulée",
+  shop_order_refused: "Commande boutique refusée",
+  shop_order_expired: "Commande boutique expirée",
   client_reset: "Client réinitialisé",
 };
 

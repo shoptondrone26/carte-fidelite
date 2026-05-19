@@ -32,6 +32,8 @@ export const ADMIN_CLIENTS_SYNC: AdminRealtimeSubscription[] = [
   { table: "profiles", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
   { table: "phantom_requests", event: "*" },
+  { table: "shop_orders", event: "*" },
+  { table: "shop_products", event: "UPDATE" },
   { table: "history", event: "INSERT" },
 ];
 

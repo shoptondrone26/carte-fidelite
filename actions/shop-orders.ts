@@ -187,6 +187,54 @@ export async function adminUpdateShopOrderStatusAction(
   return { ok: true };
 }
 
+const profileIdSchema = z.string().uuid();
+
+export async function adminCancelLatestShopOrderAction(
+  rawProfileId: unknown,
+): Promise<ShopOrderActionResult> {
+  const profileId = profileIdSchema.safeParse(rawProfileId);
+  if (!profileId.success) {
+    return { ok: false, error: "Client invalide." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await getIsAdmin(supabase, user.id))) {
+    return { ok: false, error: "Accès réservé aux administrateurs." };
+  }
+
+  const { error } = await supabase.rpc("admin_cancel_latest_shop_order", {
+    p_profile_id: profileId.data,
+  });
+
+  if (error) {
+    if (error.message.includes("not_found")) {
+      return { ok: false, error: "Aucune commande boutique à annuler." };
+    }
+    if (error.message.includes("not_cancellable")) {
+      return {
+        ok: false,
+        error: "La dernière commande ne peut plus être annulée.",
+      };
+    }
+    if (error.message.includes("already_cancelled")) {
+      return { ok: false, error: "Cette commande est déjà annulée." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/boutique");
+  revalidatePath("/admin");
+  revalidatePath("/admin/boutique");
+  revalidatePath("/admin/clients");
+  revalidatePath("/admin/compta");
+
+  return { ok: true };
+}
+
 export async function fetchClientActiveShopOrdersAction(): Promise<ShopOrder[]> {
   const supabase = await createClient();
   const {

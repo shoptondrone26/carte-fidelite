@@ -7,6 +7,11 @@ import type { AdminClientCardData } from "@/components/admin/admin-client-card";
 import type { AdminHistorySnippet } from "@/components/admin/admin-client-card";
 import type { AdminStats } from "@/components/admin/admin-types";
 import { fetchSpendByClient } from "@/lib/admin/accounting";
+import {
+  buildLatestShopOrderByClient,
+  isAdminCancellableLatestShopOrder,
+  type ClientLatestShopOrderSnippet,
+} from "@/lib/boutique/orders";
 import type { PhantomRequestStatus } from "@/lib/phantom/requests";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -267,6 +272,30 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
     console.error("fetchAdminClientPhantomRequests", phantomError.message);
   }
 
+  const { data: shopOrdersRaw, error: shopOrdersError } = await supabase
+    .from("shop_orders")
+    .select(
+      "id, profile_id, status, product_name, total_price_eur, created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (shopOrdersError) {
+    console.error("fetchAdminClientShopOrders", shopOrdersError.message);
+  }
+
+  const shopOrderRows =
+    (shopOrdersRaw as (ClientLatestShopOrderSnippet & {
+      profile_id: string;
+    })[]) ?? [];
+
+  const latestShopByClient = buildLatestShopOrderByClient(
+    shopOrderRows.map((row) => ({
+      ...row,
+      total_price_eur: Number(row.total_price_eur),
+    })),
+  );
+
   const freeUsedCounts = buildFreeUsedCounts(freeUsedRaw);
   const spendByClient = await fetchSpendByClient(supabase);
   const phantomByClient = new Map<string, ClientPhantomRequestRow>();
@@ -291,6 +320,10 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
       total_spent_eur: spend?.totalSpentEur ?? 0,
       paid_unlocks_count: spend?.paidUnlocksCount ?? 0,
       phantom_request: phantomByClient.get(c.id) ?? null,
+      latest_shop_order: (() => {
+        const latest = latestShopByClient.get(c.id) ?? null;
+        return isAdminCancellableLatestShopOrder(latest) ? latest : null;
+      })(),
     };
   });
   const historyByClient = buildHistoryByClient(

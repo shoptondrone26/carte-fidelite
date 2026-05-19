@@ -53,6 +53,49 @@ export const SHOP_ORDER_ACTIVE_STATUSES: ShopOrderStatus[] = [
   "shipped",
 ];
 
+/** Dernière commande annulable depuis le carnet admin (pas completed / terminal). */
+export const SHOP_ORDER_ADMIN_CANCELLABLE_STATUSES: ShopOrderStatus[] = [
+  ...SHOP_ORDER_ACTIVE_STATUSES,
+];
+
+export type ClientLatestShopOrderSnippet = {
+  id: string;
+  status: ShopOrderStatus;
+  product_name: string;
+  total_price_eur: number;
+  created_at: string;
+};
+
+export function isAdminCancellableLatestShopOrder(
+  order: { status: string } | null | undefined,
+): order is ClientLatestShopOrderSnippet {
+  return (
+    order !== null &&
+    order !== undefined &&
+    SHOP_ORDER_ADMIN_CANCELLABLE_STATUSES.includes(
+      order.status as ShopOrderStatus,
+    )
+  );
+}
+
+export function buildLatestShopOrderByClient(
+  rows: (ClientLatestShopOrderSnippet & { profile_id: string })[],
+): Map<string, ClientLatestShopOrderSnippet> {
+  const map = new Map<string, ClientLatestShopOrderSnippet>();
+  for (const row of rows) {
+    if (!map.has(row.profile_id)) {
+      map.set(row.profile_id, {
+        id: row.id,
+        status: row.status,
+        product_name: row.product_name,
+        total_price_eur: Number(row.total_price_eur),
+        created_at: row.created_at,
+      });
+    }
+  }
+  return map;
+}
+
 export const SHOP_ORDER_ADMIN_QUEUE_STATUSES: ShopOrderStatus[] = [
   ...SHOP_ORDER_ACTIVE_STATUSES,
 ];

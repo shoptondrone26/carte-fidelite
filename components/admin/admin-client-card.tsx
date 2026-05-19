@@ -9,11 +9,17 @@ import {
   undoLastUnlockAction,
   validateUnlockAction,
 } from "@/actions/admin-unlock";
+import { adminCancelLatestShopOrderAction } from "@/actions/shop-orders";
 import { cancelPhantomRequestAction } from "@/actions/phantom";
 import { ValidateUnlockAmountDialog } from "@/components/admin/validate-unlock-amount-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { formatEur, type UnlockAmountEur } from "@/lib/admin/accounting";
 import { formatHistoryEventType } from "@/lib/history/labels";
+import { formatShopPrice } from "@/lib/boutique/products";
+import {
+  shopOrderStatusLabelFr,
+  type ClientLatestShopOrderSnippet,
+} from "@/lib/boutique/orders";
 import {
   PHANTOM_AMOUNT_EUR,
   phantomStatusLabelFr,
@@ -52,6 +58,7 @@ export type AdminClientCardData = {
     amount_eur: number;
     created_at: string;
   } | null;
+  latest_shop_order: ClientLatestShopOrderSnippet | null;
 };
 
 type AdminClientCardProps = {
@@ -65,6 +72,7 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
   const [amountOpen, setAmountOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
   const [cancelPhantomOpen, setCancelPhantomOpen] = useState(false);
+  const [cancelShopOpen, setCancelShopOpen] = useState(false);
   const total = client.total_unlocks ?? 0;
   const vip = getVipLevel(total);
   const cycle = getCycleProgress(total);
@@ -74,6 +82,7 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
   const displayName =
     client.full_name?.trim() || client.email?.trim() || "Client";
   const cancellablePhantom = client.phantom_request;
+  const cancellableShopOrder = client.latest_shop_order;
 
   function onConfirmAmount(amount: UnlockAmountEur) {
     start(async () => {
@@ -111,6 +120,22 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
         setUndoOpen(false);
         toast.success("Dernier déblocage annulé", {
           description: `${displayName} : -1 tampon · ${formatEur(res.amountEur)} corrigé.`,
+        });
+        router.refresh();
+      } else {
+        toast.error(res.error ?? "Erreur");
+      }
+    });
+  }
+
+  function onConfirmCancelLatestShopOrder() {
+    if (!cancellableShopOrder) return;
+    start(async () => {
+      const res = await adminCancelLatestShopOrderAction(client.id);
+      if (res.ok) {
+        setCancelShopOpen(false);
+        toast.success("Commande boutique annulée", {
+          description: `${displayName} : ${cancellableShopOrder.product_name} · stock et compta mis à jour si nécessaire.`,
         });
         router.refresh();
       } else {
@@ -264,6 +289,19 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
               Annuler Mode Fantôme
             </button>
           ) : null}
+          {cancellableShopOrder ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setCancelShopOpen(true)}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "h-12 w-full justify-center border-sky-500/40 text-sky-100 hover:bg-sky-500/10 disabled:opacity-45",
+              )}
+            >
+              Annuler la dernière commande
+            </button>
+          ) : null}
         </div>
 
         {history.length > 0 ? (
@@ -315,7 +353,117 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
         busy={busy}
         onConfirm={onConfirmCancelPhantom}
       />
+      <CancelLatestShopOrderDialog
+        open={cancelShopOpen}
+        onOpenChange={setCancelShopOpen}
+        clientName={displayName}
+        order={cancellableShopOrder}
+        busy={busy}
+        onConfirm={onConfirmCancelLatestShopOrder}
+      />
     </article>
+  );
+}
+
+function CancelLatestShopOrderDialog({
+  open,
+  onOpenChange,
+  clientName,
+  order,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientName: string;
+  order: ClientLatestShopOrderSnippet | null;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !order) return null;
+
+  const restoresStock = order.status === "payment_pending";
+
+  return (
+    <div
+      className="fixed inset-0 z-200 flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cancel-shop-order-title"
+        onClick={() => !busy && onOpenChange(false)}
+      >
+        <div
+          className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+
+          <div className="space-y-4">
+            <div>
+              <p
+                id="cancel-shop-order-title"
+                className="text-[10px] font-semibold uppercase tracking-[0.35em] text-sky-200/90"
+              >
+                Annulation commande boutique
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-white">
+                Annuler la dernière commande ?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                Cette action concerne{" "}
+                <span className="font-medium text-white">{clientName}</span>.
+                La commande reste en base ; seul le statut passe à annulée.
+              </p>
+            </div>
+
+            <ul className="space-y-2 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-3 text-sm text-sky-50/90">
+              <li>Produit : {order.product_name}</li>
+              <li>Montant : {formatShopPrice(order.total_price_eur)}</li>
+              <li>Statut actuel : {shopOrderStatusLabelFr[order.status]}</li>
+              <li>Trace historique : commande boutique annulée</li>
+              {restoresStock ? (
+                <li>Le stock réservé sera libéré.</li>
+              ) : (
+                <li>Le stock ne sera pas modifié (déjà déduit à la commande).</li>
+              )}
+            </ul>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onOpenChange(false)}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "h-12 justify-center",
+                )}
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onConfirm}
+                className={cn(
+                  buttonVariants({ variant: "default", size: "lg" }),
+                  "h-12 justify-center bg-sky-600 text-white hover:bg-sky-500",
+                )}
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
   );
 }
 
