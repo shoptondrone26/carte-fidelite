@@ -53,9 +53,10 @@ export const SHOP_ORDER_ACTIVE_STATUSES: ShopOrderStatus[] = [
   "shipped",
 ];
 
-/** Dernière commande annulable depuis le carnet admin (pas completed / terminal). */
+/** Dernière commande annulable depuis le carnet admin (y compris terminée pour remboursement). */
 export const SHOP_ORDER_ADMIN_CANCELLABLE_STATUSES: ShopOrderStatus[] = [
   ...SHOP_ORDER_ACTIVE_STATUSES,
+  "completed",
 ];
 
 export type ClientLatestShopOrderSnippet = {

@@ -135,7 +135,11 @@ export function AdminClientCard({ client, history }: AdminClientCardProps) {
       if (res.ok) {
         setCancelShopOpen(false);
         toast.success("Commande boutique annulée", {
-          description: `${displayName} : ${cancellableShopOrder.product_name} · stock et compta mis à jour si nécessaire.`,
+          description: `${displayName} : ${cancellableShopOrder.product_name}${
+            cancellableShopOrder.status === "completed"
+              ? " · contre-écriture comptable ajoutée"
+              : " · stock et compta mis à jour si nécessaire"
+          }.`,
         });
         router.refresh();
       } else {
@@ -392,6 +396,7 @@ function CancelLatestShopOrderDialog({
   if (!open || !order) return null;
 
   const restoresStock = order.status === "payment_pending";
+  const wasCompleted = order.status === "completed";
 
   return (
     <div
@@ -435,6 +440,12 @@ function CancelLatestShopOrderDialog({
               ) : (
                 <li>Le stock ne sera pas modifié (déjà déduit à la commande).</li>
               )}
+              {wasCompleted ? (
+                <li>
+                  Une contre-écriture comptable sera ajoutée pour corriger le CA
+                  boutique.
+                </li>
+              ) : null}
             </ul>
 
             <div className="grid grid-cols-2 gap-3">
