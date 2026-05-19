@@ -23,6 +23,7 @@ export const ADMIN_REQUESTS_SYNC: AdminRealtimeSubscription[] = [
 
 export const ADMIN_COMPTA_SYNC: AdminRealtimeSubscription[] = [
   { table: "accounting_transactions", event: "INSERT" },
+  { table: "shop_orders", event: "UPDATE" },
   { table: "history", event: "INSERT" },
   { table: "profiles", event: "UPDATE" },
 ];

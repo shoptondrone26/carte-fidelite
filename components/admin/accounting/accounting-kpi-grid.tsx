@@ -31,7 +31,7 @@ export function AccountingKpiGrid({ summary }: AccountingKpiGridProps) {
         />
       </section>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <MoneyStatCard
           label="CA total"
           value={formatEur(summary.revenueTotal)}
@@ -47,6 +47,9 @@ export function AccountingKpiGrid({ summary }: AccountingKpiGridProps) {
           value={formatEur(summary.revenuePhantom)}
           accent="violet"
         />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MoneyStatCard
           label="CA Boutique"
           value={formatEur(summary.revenueShop)}
@@ -57,6 +60,24 @@ export function AccountingKpiGrid({ summary }: AccountingKpiGridProps) {
           value={summary.shopOrdersCompletedCount}
           accent="emerald"
         />
+        <div className="rounded-2xl border border-white/10 bg-card/50 p-4 shadow-inner shadow-black/20">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Panier moyen boutique
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-100">
+            {summary.avgShopBasket > 0
+              ? formatEur(summary.avgShopBasket)
+              : "—"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-card/50 p-4 shadow-inner shadow-black/20">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Panier moyen déblocages
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {summary.avgBasket > 0 ? formatEur(summary.avgBasket) : "—"}
+          </p>
+        </div>
       </section>
     </div>
   );

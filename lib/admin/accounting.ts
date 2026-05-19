@@ -8,7 +8,6 @@ export type RevenueBreakdown = {
   total: number;
   unlocks: number;
   phantom: number;
-  /** Réservé boutique (écritures futures). */
   shop: number;
 };
 
@@ -32,7 +31,10 @@ export type AccountingSummary = {
   paidUnlocksToday: number;
   phantomModeCount: number;
   shopOrdersCompletedCount: number;
+  /** Panier moyen des ventes boutique comptabilisées (commandes terminées). */
+  avgShopBasket: number;
   freeUsedCount: number;
+  /** Panier moyen déblocages payants. */
   avgBasket: number;
 };
 
@@ -46,6 +48,10 @@ export type AccountingLedgerEntry = {
   client_name: string;
   actor_name: string;
   product_name: string | null;
+  /** Détail produits (commandes boutique multi-lignes). */
+  products_label: string | null;
+  /** Statut commande au moment de l'écriture (terminée / annulée). */
+  order_status_label: string | null;
 };
 
 export type ClientSpendStats = {
@@ -94,6 +100,18 @@ type AmountRow = {
   profile_id: string;
 };
 
+type ShopOrderItemLedgerRow = {
+  product_name: string;
+  quantity: number;
+  sort_order: number;
+};
+
+type ShopOrderLedgerJoin = {
+  product_name: string;
+  status: string;
+  shop_order_items?: ShopOrderItemLedgerRow[] | ShopOrderItemLedgerRow[] | null;
+};
+
 type LedgerRow = {
   id: string;
   amount_eur: number | string;
@@ -102,7 +120,7 @@ type LedgerRow = {
   profile_id: string;
   actor_id: string;
   shop_order_id: string | null;
-  shop_orders: { product_name: string } | { product_name: string }[] | null;
+  shop_orders: ShopOrderLedgerJoin | ShopOrderLedgerJoin[] | null;
 };
 
 type DayBucket = { revenue: number; unlocks: number };
@@ -327,6 +345,57 @@ function completedShopOrders(rows: AmountRow[]): number {
   );
 }
 
+function shopSaleTransactions(rows: AmountRow[]): AmountRow[] {
+  return rows.filter(
+    (row) => row.action_type === "shop_order" && row.amount_eur > 0,
+  );
+}
+
+function avgShopBasketEur(rows: AmountRow[]): number {
+  const sales = shopSaleTransactions(rows);
+  if (sales.length === 0) return 0;
+  const total = sumAmounts(sales);
+  return Math.round((total / sales.length) * 100) / 100;
+}
+
+function unwrapShopOrder(
+  shopOrder: ShopOrderLedgerJoin | ShopOrderLedgerJoin[] | null,
+): ShopOrderLedgerJoin | null {
+  if (!shopOrder) return null;
+  return Array.isArray(shopOrder) ? (shopOrder[0] ?? null) : shopOrder;
+}
+
+export function formatShopOrderProductsLabel(
+  order: ShopOrderLedgerJoin | null,
+): string | null {
+  if (!order) return null;
+
+  const rawItems = order.shop_order_items;
+  const items = (Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [])
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  if (items.length > 0) {
+    return items
+      .map((item) =>
+        item.quantity > 1
+          ? `${item.product_name} × ${item.quantity}`
+          : item.product_name,
+      )
+      .join(", ");
+  }
+
+  return order.product_name?.trim() || null;
+}
+
+export function shopLedgerOrderStatusLabel(
+  actionType: string,
+): string | null {
+  if (actionType === "shop_order_cancellation") return "Annulée";
+  if (actionType === "shop_order") return "Terminée";
+  return null;
+}
+
 export function buildRevenueBreakdown(rows: AmountRow[]): RevenueBreakdown {
   let unlocks = 0;
   let phantom = 0;
@@ -440,6 +509,7 @@ export async function fetchAccountingSummary(
   const revenueShop = sumAmounts(shopRows);
   const revenueTotal = revenueUnlocks + revenuePhantom + revenueShop;
   const paidUnlocksCount = Math.max(0, netPaidUnlocks(rows));
+  const shopCompletedCount = completedShopOrders(rows);
 
   return {
     revenueTotal,
@@ -455,7 +525,8 @@ export async function fetchAccountingSummary(
     paidUnlocksCount,
     paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
     phantomModeCount: completedPhantomModes(rows),
-    shopOrdersCompletedCount: completedShopOrders(rows),
+    shopOrdersCompletedCount: shopCompletedCount,
+    avgShopBasket: avgShopBasketEur(rows),
     freeUsedCount: freeUsedResult.count ?? 0,
     avgBasket:
       paidUnlocksCount > 0 ? Math.round(revenueUnlocks / paidUnlocksCount) : 0,
@@ -469,7 +540,7 @@ export async function fetchAccountingLedger(
   const { data: txRows, error: txError } = await supabase
     .from("accounting_transactions")
     .select(
-      "id, amount_eur, action_type, created_at, profile_id, actor_id, shop_order_id, shop_orders(product_name)",
+      "id, amount_eur, action_type, created_at, profile_id, actor_id, shop_order_id, shop_orders(product_name, status, shop_order_items(product_name, quantity, sort_order))",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -500,10 +571,13 @@ export async function fetchAccountingLedger(
   }
 
   return transactions.map((row) => {
-    const shopOrder = row.shop_orders;
-    const productName = Array.isArray(shopOrder)
-      ? shopOrder[0]?.product_name ?? null
-      : shopOrder?.product_name ?? null;
+    const shopOrder = unwrapShopOrder(row.shop_orders);
+    const productsLabel = isShopTransaction(row)
+      ? formatShopOrderProductsLabel(shopOrder)
+      : null;
+    const productName =
+      productsLabel ??
+      (shopOrder?.product_name?.trim() || null);
 
     return {
       id: row.id,
@@ -515,6 +589,8 @@ export async function fetchAccountingLedger(
       client_name: nameById.get(row.profile_id) ?? "Client",
       actor_name: nameById.get(row.actor_id) ?? "Admin",
       product_name: productName,
+      products_label: productsLabel,
+      order_status_label: shopLedgerOrderStatusLabel(row.action_type),
     };
   });
 }
