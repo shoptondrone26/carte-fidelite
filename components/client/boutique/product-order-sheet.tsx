@@ -12,6 +12,10 @@ import {
   type ShopDeliveryMethod,
 } from "@/lib/boutique/orders";
 import type { ShopProduct } from "@/lib/boutique/types";
+import {
+  clientBottomSheetMaxHeightClass,
+  clientBottomSheetPanelClass,
+} from "@/lib/ui/safe-area";
 import { cn } from "@/lib/utils";
 
 type ProductOrderSheetProps = {
@@ -67,11 +71,16 @@ export function ProductOrderSheet({
       onClick={() => !pending && onOpenChange(false)}
     >
       <div
-        className="mx-auto w-full max-w-lg rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
+        className={cn(
+          "mx-auto flex w-full max-w-lg flex-col rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300",
+          clientBottomSheetMaxHeightClass,
+          clientBottomSheetPanelClass,
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+        <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-white/20" />
 
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
               <p
@@ -144,6 +153,7 @@ export function ProductOrderSheet({
           >
             {outOfStock ? "Rupture de stock" : "Demander ce produit"}
           </button>
+        </div>
       </div>
     </div>
   );

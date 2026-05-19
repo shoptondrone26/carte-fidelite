@@ -9,6 +9,7 @@ import {
   refuseBookingAction,
 } from "@/actions/admin-bookings";
 import { buttonVariants } from "@/components/ui/button";
+import { findBookingForSlot } from "@/lib/admin/calendar-utils";
 import { parisDateKey, formatSlotTime } from "@/lib/booking/format";
 import { generateSlotStartsForDate } from "@/lib/booking/slots";
 import { cn } from "@/lib/utils";
@@ -42,14 +43,6 @@ export function AdminCalendarDay({
     return () => window.clearInterval(id);
   }, [hidePastSlots]);
 
-  const byStart = useMemo(() => {
-    const map = new Map<string, AdminCalendarBooking>();
-    for (const b of bookings) {
-      map.set(new Date(b.starts_at).toISOString(), b);
-    }
-    return map;
-  }, [bookings]);
-
   function run(
     fn: (id: string) => Promise<{ ok: boolean; error?: string }>,
     id: string,
@@ -77,7 +70,7 @@ export function AdminCalendarDay({
       <ul className="flex flex-col gap-2">
         {slots.map((slot) => {
           const iso = slot.toISOString();
-          const booking = byStart.get(iso);
+          const booking = findBookingForSlot(bookings, slot);
 
           return (
             <li

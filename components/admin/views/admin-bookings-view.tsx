@@ -6,13 +6,16 @@ import { toast } from "sonner";
 
 import {
   acceptBookingAction,
-  cancelAdminBookingAction,
   refuseBookingAction,
 } from "@/actions/admin-bookings";
 import { badgeFor } from "@/components/admin/admin-ui";
 import type { AdminBookingRow } from "@/components/admin/admin-types";
 import { buttonVariants } from "@/components/ui/button";
-import { formatSlotDateTime } from "@/lib/booking/format";
+import {
+  formatSlotDateTime,
+  formatSlotTime,
+  parisDateKey,
+} from "@/lib/booking/format";
 import { cn } from "@/lib/utils";
 
 type AdminPendingRequestsSectionProps = {
@@ -54,10 +57,7 @@ export function AdminPendingRequestsSection({
     const starts = new Date(startsAt);
     const now = new Date();
     const diffMinutes = Math.round((starts.getTime() - now.getTime()) / 60_000);
-    const sameDay =
-      starts.getFullYear() === now.getFullYear() &&
-      starts.getMonth() === now.getMonth() &&
-      starts.getDate() === now.getDate();
+    const sameDay = parisDateKey(starts) === parisDateKey(now);
 
     if (diffMinutes < 0) {
       return `En retard de ${Math.abs(diffMinutes)} min`;
@@ -69,18 +69,9 @@ export function AdminPendingRequestsSection({
       return "Dans 1h";
     }
     if (sameDay) {
-      return `Aujourd’hui à ${starts.toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`;
+      return `Aujourd’hui à ${formatSlotTime(startsAt)}`;
     }
-    return starts.toLocaleString("fr-FR", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return formatSlotDateTime(startsAt);
   }
 
   return (
@@ -90,7 +81,7 @@ export function AdminPendingRequestsSection({
       </h2>
       {pending.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-          Aucune demande ou réservation à traiter.
+          Aucune demande ou réservation à venir.
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -163,8 +154,8 @@ export function AdminPendingRequestsSection({
               ) : (
                 <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                   <p className="text-xs text-emerald-100/90">
-                    Réservation acceptée. Elle reste ici jusqu’à validation du
-                    déblocage sur la carte client.
+                    Rendez-vous accepté à venir. Validez le déblocage depuis la
+                    carte client après le passage.
                   </p>
                   <Link
                     href={`/admin/clients?client=${b.profile_id}`}
@@ -175,23 +166,6 @@ export function AdminPendingRequestsSection({
                   >
                     Voir carte client
                   </Link>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      run(
-                        cancelAdminBookingAction,
-                        b.id,
-                        "Réservation annulée",
-                      )
-                    }
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "lg" }),
-                      "h-12 w-full justify-center border-rose-500/35 text-rose-100 hover:bg-rose-500/10",
-                    )}
-                  >
-                    Annuler la réservation
-                  </button>
                 </div>
               )}
             </li>

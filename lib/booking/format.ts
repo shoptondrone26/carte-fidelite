@@ -1,5 +1,52 @@
 import { BOOKING_TIMEZONE } from "@/lib/booking/config";
 
+export type ParisWallTime = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+};
+
+export function getParisWallParts(date: Date): ParisWallTime {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: BOOKING_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+
+  return {
+    year: pick("year"),
+    month: pick("month"),
+    day: pick("day"),
+    hour: pick("hour"),
+    minute: pick("minute"),
+  };
+}
+
+/** Même créneau mur Paris (indépendant de la représentation UTC exacte). */
+export function sameParisWallSlot(
+  a: Date | string,
+  b: Date | string,
+): boolean {
+  const pa = getParisWallParts(a instanceof Date ? a : new Date(a));
+  const pb = getParisWallParts(b instanceof Date ? b : new Date(b));
+  return (
+    pa.year === pb.year &&
+    pa.month === pb.month &&
+    pa.day === pb.day &&
+    pa.hour === pb.hour &&
+    pa.minute === pb.minute
+  );
+}
+
 export function formatSlotDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", {
     timeZone: BOOKING_TIMEZONE,

@@ -1,17 +1,32 @@
-import { BOOKING_TIMEZONE } from "@/lib/booking/config";
-import { parisDateKey } from "@/lib/booking/format";
+import { BOOKING_OPEN_HOUR, BOOKING_TIMEZONE } from "@/lib/booking/config";
+import { parisDateKey, sameParisWallSlot } from "@/lib/booking/format";
 import {
   generateSlotStartsForDate,
   getBookableDateKeys,
+  parisWallToUtc,
   slotDurationMs,
 } from "@/lib/booking/slots";
+
+export function findBookingForSlot<T extends { starts_at: string }>(
+  bookings: T[],
+  slot: Date,
+): T | undefined {
+  const slotMs = slot.getTime();
+  const exact = bookings.find(
+    (b) => new Date(b.starts_at).getTime() === slotMs,
+  );
+  if (exact) return exact;
+  return bookings.find((b) => sameParisWallSlot(b.starts_at, slot));
+}
 
 export function calendarDayRange(dateKey: string): {
   startIso: string;
   endIso: string;
 } {
   const slots = generateSlotStartsForDate(dateKey);
-  const start = slots[0] ?? new Date(`${dateKey}T08:00:00.000Z`);
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const start =
+    slots[0] ?? parisWallToUtc(y, m, d, BOOKING_OPEN_HOUR, 0);
   const last = slots[slots.length - 1] ?? start;
   const end = new Date(last.getTime() + slotDurationMs() + 1);
   return { startIso: start.toISOString(), endIso: end.toISOString() };
@@ -64,10 +79,7 @@ export function bookingAtSlot(
   bookings: { starts_at: string }[],
   slotIso: string,
 ): boolean {
-  const target = new Date(slotIso).getTime();
-  return bookings.some(
-    (b) => new Date(b.starts_at).getTime() === target,
-  );
+  return Boolean(findBookingForSlot(bookings, new Date(slotIso)));
 }
 
 export function adminReservationsFetchRange(): {

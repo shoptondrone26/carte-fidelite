@@ -2,10 +2,13 @@ import {
   BOOKING_CLOSE_HOUR,
   BOOKING_HORIZON_DAYS,
   BOOKING_OPEN_HOUR,
-  BOOKING_TIMEZONE,
   SLOT_MINUTES,
 } from "@/lib/booking/config";
-import { parisDateKey } from "@/lib/booking/format";
+import {
+  getParisWallParts,
+  parisDateKey,
+  type ParisWallTime,
+} from "@/lib/booking/format";
 
 /** Créneaux possibles pour une date (clé YYYY-MM-DD, fuseau Paris). */
 export function generateSlotStartsForDate(dateKey: string): Date[] {
@@ -24,62 +27,55 @@ export function generateSlotStartsForDate(dateKey: string): Date[] {
 /** Prochaines dates réservables (clés YYYY-MM-DD, Paris). */
 export function getBookableDateKeys(from = new Date()): string[] {
   const keys: string[] = [];
-  let cursor = from;
+  let key = parisDateKey(from);
 
   for (let i = 0; i < BOOKING_HORIZON_DAYS; i++) {
-    keys.push(parisDateKey(cursor));
-    cursor = new Date(cursor.getTime() + 86_400_000);
+    keys.push(key);
+    key = addParisCalendarDays(key, 1);
   }
 
   return keys;
 }
 
-function parisWallToUtc(
+/** Instant UTC pour une date/heure murale Europe/Paris. */
+export function parisWallToUtc(
   year: number,
   month: number,
   day: number,
   hour: number,
   minute: number,
 ): Date {
-  let utc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const target: ParisWallTime = { year, month, day, hour, minute };
+  let utcMs = Date.UTC(year, month - 1, day, hour, minute, 0);
 
-  for (let i = 0; i < 8; i++) {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: BOOKING_TIMEZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(utc));
-
-    const pick = (type: Intl.DateTimeFormatPartTypes) =>
-      Number(parts.find((p) => p.type === type)?.value ?? 0);
-
-    const py = pick("year");
-    const pm = pick("month");
-    const pd = pick("day");
-    const ph = pick("hour");
-    const pmin = pick("minute");
-
+  for (let i = 0; i < 12; i++) {
+    const actual = getParisWallParts(new Date(utcMs));
     if (
-      py === year &&
-      pm === month &&
-      pd === day &&
-      ph === hour &&
-      pmin === minute
+      actual.year === year &&
+      actual.month === month &&
+      actual.day === day &&
+      actual.hour === hour &&
+      actual.minute === minute
     ) {
-      return new Date(utc);
+      return new Date(utcMs);
     }
 
-    const targetDayMin = day * 1440 + hour * 60 + minute;
-    const actualDayMin = pd * 1440 + ph * 60 + pmin;
-    const dayDelta = (year - py) * 365 + (month - pm) * 31 + (day - pd);
-    utc += (dayDelta * 1440 + (targetDayMin - actualDayMin)) * 60_000;
+    const diffMin =
+      civilMinuteIndex(target) - civilMinuteIndex(actual);
+    utcMs += diffMin * 60_000;
   }
 
-  return new Date(utc);
+  return new Date(utcMs);
+}
+
+function civilMinuteIndex(p: ParisWallTime): number {
+  return (((p.year * 372 + p.month) * 31 + p.day) * 24 + p.hour) * 60 + p.minute;
+}
+
+function addParisCalendarDays(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const anchor = parisWallToUtc(y, m, d, 12, 0);
+  return parisDateKey(new Date(anchor.getTime() + days * 86_400_000));
 }
 
 export function slotDurationMs(): number {

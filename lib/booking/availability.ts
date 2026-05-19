@@ -1,3 +1,4 @@
+import { sameParisWallSlot } from "@/lib/booking/format";
 import { generateSlotStartsForDate } from "@/lib/booking/slots";
 
 export type SlotOption = {
@@ -6,18 +7,26 @@ export type SlotOption = {
   available: boolean;
 };
 
+function isSlotOccupied(slot: Date, occupiedIso: string[]): boolean {
+  return occupiedIso.some((iso) => {
+    const occ = new Date(iso);
+    return (
+      occ.getTime() === slot.getTime() || sameParisWallSlot(occ, slot)
+    );
+  });
+}
+
 export function buildSlotOptions(
   dateKey: string,
   occupiedIso: string[],
   now = new Date(),
 ): SlotOption[] {
-  const occupied = new Set(occupiedIso.map((s) => new Date(s).toISOString()));
   const slots = generateSlotStartsForDate(dateKey);
 
   return slots.map((start) => {
     const iso = start.toISOString();
     const inPast = start.getTime() <= now.getTime();
-    const taken = occupied.has(iso);
+    const taken = isSlotOccupied(start, occupiedIso);
     return {
       startsAt: iso,
       label: start.toLocaleTimeString("fr-FR", {
