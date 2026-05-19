@@ -21,6 +21,7 @@ export type AccountingSummary = {
   revenueTotal: number;
   revenueUnlocks: number;
   revenuePhantom: number;
+  revenueShop: number;
   revenueToday: number;
   revenueWeek: number;
   revenueMonth: number;
@@ -30,6 +31,7 @@ export type AccountingSummary = {
   paidUnlocksCount: number;
   paidUnlocksToday: number;
   phantomModeCount: number;
+  shopOrdersCompletedCount: number;
   freeUsedCount: number;
   avgBasket: number;
 };
@@ -43,6 +45,7 @@ export type AccountingLedgerEntry = {
   actor_id: string;
   client_name: string;
   actor_name: string;
+  product_name: string | null;
 };
 
 export type ClientSpendStats = {
@@ -89,6 +92,17 @@ type AmountRow = {
   action_type: string;
   created_at: string;
   profile_id: string;
+};
+
+type LedgerRow = {
+  id: string;
+  amount_eur: number | string;
+  action_type: string;
+  created_at: string;
+  profile_id: string;
+  actor_id: string;
+  shop_order_id: string | null;
+  shop_orders: { product_name: string } | { product_name: string }[] | null;
 };
 
 type DayBucket = { revenue: number; unlocks: number };
@@ -293,8 +307,24 @@ function filterBetween(
   });
 }
 
-function isShopTransaction(_row: { action_type: string }): boolean {
-  return false;
+function isShopTransaction(row: { action_type: string }): boolean {
+  return (
+    row.action_type === "shop_order" ||
+    row.action_type === "shop_order_cancellation"
+  );
+}
+
+function completedShopOrders(rows: AmountRow[]): number {
+  return Math.max(
+    0,
+    rows
+      .filter(isShopTransaction)
+      .reduce(
+        (count, row) =>
+          count + (row.amount_eur > 0 ? 1 : row.amount_eur < 0 ? -1 : 0),
+        0,
+      ),
+  );
 }
 
 export function buildRevenueBreakdown(rows: AmountRow[]): RevenueBreakdown {
@@ -340,11 +370,14 @@ function periodKpi(
 }
 
 export function formatEur(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  const hasCents = Math.round(rounded * 100) % 100 !== 0;
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+    maximumFractionDigits: hasCents ? 2 : 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
+  }).format(rounded);
 }
 
 async function fetchAllTransactions(
@@ -356,7 +389,10 @@ async function fetchAllTransactions(
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return (data ?? []) as AmountRow[];
+  return ((data ?? []) as AmountRow[]).map((row) => ({
+    ...row,
+    amount_eur: Number(row.amount_eur),
+  }));
 }
 
 export async function fetchAccountingSummary(
@@ -398,15 +434,18 @@ export async function fetchAccountingSummary(
 
   const unlockRows = rows.filter(isUnlockTransaction);
   const phantomRows = rows.filter(isPhantomModeTransaction);
+  const shopRows = rows.filter(isShopTransaction);
   const revenueUnlocks = sumAmounts(unlockRows);
   const revenuePhantom = sumAmounts(phantomRows);
-  const revenueTotal = revenueUnlocks + revenuePhantom;
+  const revenueShop = sumAmounts(shopRows);
+  const revenueTotal = revenueUnlocks + revenuePhantom + revenueShop;
   const paidUnlocksCount = Math.max(0, netPaidUnlocks(rows));
 
   return {
     revenueTotal,
     revenueUnlocks,
     revenuePhantom,
+    revenueShop,
     revenueToday: today.total,
     revenueWeek: week.total,
     revenueMonth: month.total,
@@ -416,6 +455,7 @@ export async function fetchAccountingSummary(
     paidUnlocksCount,
     paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
     phantomModeCount: completedPhantomModes(rows),
+    shopOrdersCompletedCount: completedShopOrders(rows),
     freeUsedCount: freeUsedResult.count ?? 0,
     avgBasket:
       paidUnlocksCount > 0 ? Math.round(revenueUnlocks / paidUnlocksCount) : 0,
@@ -428,12 +468,14 @@ export async function fetchAccountingLedger(
 ): Promise<AccountingLedgerEntry[]> {
   const { data: txRows, error: txError } = await supabase
     .from("accounting_transactions")
-    .select("id, amount_eur, action_type, created_at, profile_id, actor_id")
+    .select(
+      "id, amount_eur, action_type, created_at, profile_id, actor_id, shop_order_id, shop_orders(product_name)",
+    )
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (txError) throw txError;
-  const transactions = txRows ?? [];
+  const transactions = (txRows ?? []) as LedgerRow[];
   if (transactions.length === 0) return [];
 
   const profileIds = new Set<string>();
@@ -457,16 +499,24 @@ export async function fetchAccountingLedger(
     );
   }
 
-  return transactions.map((row) => ({
-    id: row.id,
-    amount_eur: row.amount_eur,
-    action_type: row.action_type,
-    created_at: row.created_at,
-    profile_id: row.profile_id,
-    actor_id: row.actor_id,
-    client_name: nameById.get(row.profile_id) ?? "Client",
-    actor_name: nameById.get(row.actor_id) ?? "Admin",
-  }));
+  return transactions.map((row) => {
+    const shopOrder = row.shop_orders;
+    const productName = Array.isArray(shopOrder)
+      ? shopOrder[0]?.product_name ?? null
+      : shopOrder?.product_name ?? null;
+
+    return {
+      id: row.id,
+      amount_eur: Number(row.amount_eur),
+      action_type: row.action_type,
+      created_at: row.created_at,
+      profile_id: row.profile_id,
+      actor_id: row.actor_id,
+      client_name: nameById.get(row.profile_id) ?? "Client",
+      actor_name: nameById.get(row.actor_id) ?? "Admin",
+      product_name: productName,
+    };
+  });
 }
 
 export async function fetchClientSpendStats(

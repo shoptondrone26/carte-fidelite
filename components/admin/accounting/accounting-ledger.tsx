@@ -5,6 +5,8 @@ const actionLabelFr: Record<string, string> = {
   unlock_cancellation: "Annulation déblocage",
   phantom_mode: "Mode Fantôme",
   phantom_mode_cancellation: "Annulation Mode Fantôme",
+  shop_order: "Boutique",
+  shop_order_cancellation: "Annulation boutique",
 };
 
 function formatActionType(actionType: string): string {
@@ -54,7 +56,9 @@ export function AccountingLedger({ entries }: AccountingLedgerProps) {
                 </time>
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatActionType(row.action_type)} · par {row.actor_name}
+                {formatActionType(row.action_type)}
+                {row.product_name ? ` · ${row.product_name}` : ""} · par{" "}
+                {row.actor_name}
               </p>
             </li>
           ))}

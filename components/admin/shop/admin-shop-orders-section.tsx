@@ -227,19 +227,25 @@ export function AdminShopOrdersSection({ orders }: AdminShopOrdersSectionProps) 
                     </button>
                   ) : null}
 
-                  {order.status !== "completed" ? (
+                  {!["refused", "cancelled", "expired"].includes(order.status) ? (
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        updateStatus(order.id, "cancelled", "Commande annulée")
+                        updateStatus(
+                          order.id,
+                          "cancelled",
+                          order.status === "completed"
+                            ? "Commande annulée (contre-écriture compta)"
+                            : "Commande annulée",
+                        )
                       }
                       className={cn(
                         buttonVariants({ variant: "outline", size: "lg" }),
                         "col-span-2 h-11 justify-center border-rose-500/35 text-rose-100 hover:bg-rose-500/10",
                       )}
                     >
-                      Annuler
+                      {order.status === "completed" ? "Annuler / rembourser" : "Annuler"}
                     </button>
                   ) : null}
                 </div>

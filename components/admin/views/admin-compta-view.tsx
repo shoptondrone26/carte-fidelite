@@ -26,8 +26,9 @@ export function AdminComptaView({
   return (
     <div className="flex flex-col gap-8 pb-4">
       <p className="text-sm text-muted-foreground">
-        Suivi du CA total : déblocages payants et Mode Fantôme. Données
-        visibles uniquement par les administrateurs.
+        Suivi du CA total : déblocages, Mode Fantôme et boutique (ventes
+        comptabilisées à la clôture « terminée »). Données visibles uniquement
+        par les administrateurs.
       </p>
 
       <AccountingKpiGrid summary={summary} />
