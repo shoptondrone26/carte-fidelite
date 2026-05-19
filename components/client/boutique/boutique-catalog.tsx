@@ -38,15 +38,15 @@ export function BoutiqueCatalog({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex min-w-0 flex-col gap-6 overflow-x-hidden sm:gap-8">
       {categories.map((group) => (
-        <section key={group.category} className="space-y-3">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/75">
+        <section key={group.category} className="min-w-0 space-y-2.5 sm:space-y-3">
+          <h2 className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/75">
             {group.label}
           </h2>
-          <ul className="grid grid-cols-2 gap-3">
+          <ul className="grid min-w-0 grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4">
             {group.products.map((product) => (
-              <li key={product.id}>
+              <li key={product.id} className="min-w-0">
                 <ProductCard
                   product={product}
                   activeOrders={activeOrders}
