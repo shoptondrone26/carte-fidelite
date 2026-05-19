@@ -22,24 +22,12 @@ type BoutiqueCatalogProps = {
   onClearFilter: () => void;
 };
 
-function ProductGrid({
-  products,
-  activeOrders,
-  onOrdersChanged,
-}: {
-  products: ShopProduct[];
-  activeOrders: ShopOrder[];
-  onOrdersChanged: () => void;
-}) {
+function ProductGrid({ products }: { products: ShopProduct[] }) {
   return (
     <ul className="grid min-w-0 grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4">
       {products.map((product) => (
         <li key={product.id} className="min-w-0">
-          <ProductCard
-            product={product}
-            activeOrders={activeOrders}
-            onOrdered={onOrdersChanged}
-          />
+          <ProductCard product={product} />
         </li>
       ))}
     </ul>
@@ -48,8 +36,6 @@ function ProductGrid({
 
 export function BoutiqueCatalog({
   initialProducts,
-  activeOrders,
-  onOrdersChanged,
   filter,
   onClearFilter,
 }: BoutiqueCatalogProps) {
@@ -113,11 +99,7 @@ export function BoutiqueCatalog({
             <h2 className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/75">
               {group.label}
             </h2>
-            <ProductGrid
-              products={group.products}
-              activeOrders={activeOrders}
-              onOrdersChanged={onOrdersChanged}
-            />
+            <ProductGrid products={group.products} />
           </section>
         ))}
       </div>
@@ -129,11 +111,7 @@ export function BoutiqueCatalog({
       <h2 className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/75">
         {filterLabel}
       </h2>
-      <ProductGrid
-        products={filteredProducts}
-        activeOrders={activeOrders}
-        onOrdersChanged={onOrdersChanged}
-      />
+      <ProductGrid products={filteredProducts} />
     </section>
   );
 }

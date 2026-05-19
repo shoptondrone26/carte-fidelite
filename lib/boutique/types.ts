@@ -11,10 +11,14 @@ export type BoutiqueOrderStatus =
 export type ShopProduct = {
   id: string;
   name: string;
+  short_description: string | null;
   description: string | null;
+  specs: string | null;
   price_eur: number;
   stock: number;
   image_url: string | null;
+  image_urls: string[];
+  primary_image_index: number;
   category: string;
   is_active: boolean;
   sort_order: number;

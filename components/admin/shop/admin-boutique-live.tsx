@@ -133,6 +133,7 @@ export function AdminBoutiqueLive({
           </h2>
           <AdminProductForm
             product={panel.type === "edit" ? panel.product : null}
+            allProducts={products}
             onSaved={onSaved}
             onCancel={() => setPanel(null)}
           />

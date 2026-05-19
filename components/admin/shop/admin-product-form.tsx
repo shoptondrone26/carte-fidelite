@@ -4,30 +4,43 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { upsertShopProductAction } from "@/actions/shop-products";
-import { AdminProductImageUpload } from "@/components/admin/shop/admin-product-image-upload";
+import { AdminProductGalleryUpload } from "@/components/admin/shop/admin-product-gallery-upload";
+import { AdminProductRecommendations } from "@/components/admin/shop/admin-product-recommendations";
 import {
   SHOP_CATEGORY_LABELS,
   SHOP_CATEGORY_SLUGS,
   type ShopCategorySlug,
 } from "@/lib/boutique/categories";
+import { productImageUrls } from "@/lib/boutique/images";
 import type { ShopProduct } from "@/lib/boutique/types";
 import { cn } from "@/lib/utils";
 
 type AdminProductFormProps = {
   product?: ShopProduct | null;
+  allProducts: ShopProduct[];
   onSaved: (product: ShopProduct) => void;
   onCancel: () => void;
 };
 
 export function AdminProductForm({
   product,
+  allProducts,
   onSaved,
   onCancel,
 }: AdminProductFormProps) {
   const [pending, startTransition] = useTransition();
-  const [imageUrl, setImageUrl] = useState(product?.image_url ?? null);
+  const [imageUrls, setImageUrls] = useState<string[]>(
+    product ? productImageUrls(product) : [],
+  );
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(
+    product?.primary_image_index ?? 0,
+  );
   const [name, setName] = useState(product?.name ?? "");
+  const [shortDescription, setShortDescription] = useState(
+    product?.short_description ?? "",
+  );
   const [description, setDescription] = useState(product?.description ?? "");
+  const [specs, setSpecs] = useState(product?.specs ?? "");
   const [priceEur, setPriceEur] = useState(
     product ? String(product.price_eur) : "",
   );
@@ -46,13 +59,16 @@ export function AdminProductForm({
       const res = await upsertShopProductAction({
         id: product?.id,
         name,
+        short_description: shortDescription,
         description,
+        specs,
         price_eur: Number(priceEur),
         stock: Number(stock),
         category,
         is_active: isActive,
         sort_order: Number(sortOrder),
-        image_url: imageUrl,
+        image_urls: imageUrls,
+        primary_image_index: primaryImageIndex,
       });
 
       if (res.ok && res.product) {
@@ -64,19 +80,30 @@ export function AdminProductForm({
     });
   }
 
-  const needsIdForImage = Boolean(product?.id);
+  const needsIdForGallery = Boolean(product?.id);
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      {needsIdForImage ? (
-        <AdminProductImageUpload
-          productId={product!.id}
-          imageUrl={imageUrl}
-          onUpdated={setImageUrl}
-        />
+      {needsIdForGallery ? (
+        <>
+          <AdminProductGalleryUpload
+            productId={product!.id}
+            imageUrls={imageUrls}
+            primaryImageIndex={primaryImageIndex}
+            onUpdated={(urls, primary) => {
+              setImageUrls(urls);
+              setPrimaryImageIndex(primary);
+            }}
+          />
+          <AdminProductRecommendations
+            productId={product!.id}
+            allProducts={allProducts}
+          />
+        </>
       ) : (
         <p className="rounded-xl border border-dashed border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs text-amber-100/80">
-          Enregistrez le produit une première fois pour ajouter une photo.
+          Enregistrez le produit une première fois pour la galerie et les
+          recommandations.
         </p>
       )}
 
@@ -90,13 +117,33 @@ export function AdminProductForm({
         />
       </Field>
 
-      <Field label="Description">
+      <Field label="Description courte (carte catalogue)">
+        <textarea
+          value={shortDescription}
+          onChange={(e) => setShortDescription(e.target.value)}
+          rows={2}
+          className={cn(inputClass, "resize-none")}
+          placeholder="Accroche visible sur la grille"
+        />
+      </Field>
+
+      <Field label="Description complète (page produit)">
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          rows={4}
+          className={cn(inputClass, "resize-none")}
+          placeholder="Présentation détaillée"
+        />
+      </Field>
+
+      <Field label="Caractéristiques / specs">
+        <textarea
+          value={specs}
+          onChange={(e) => setSpecs(e.target.value)}
           rows={3}
           className={cn(inputClass, "resize-none")}
-          placeholder="Description courte"
+          placeholder="Détails techniques, contenu du pack…"
         />
       </Field>
 
