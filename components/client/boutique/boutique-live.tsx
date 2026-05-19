@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { BoutiqueCatalog } from "@/components/client/boutique/boutique-catalog";
+import { BoutiqueCategoryFilters } from "@/components/client/boutique/boutique-category-filters";
 import { BoutiqueOrdersPanel } from "@/components/client/boutique/boutique-orders-panel";
 import { buttonVariants } from "@/components/ui/button";
 import { useClientShopOrdersRealtime } from "@/hooks/use-client-shop-orders-realtime";
+import type { ShopCatalogFilterId } from "@/lib/boutique/categories";
 import type { ShopOrder } from "@/lib/boutique/orders";
 import type { ShopProduct } from "@/lib/boutique/types";
 import { cn } from "@/lib/utils";
@@ -23,6 +26,7 @@ export function BoutiqueLive({
   userId,
 }: BoutiqueLiveProps) {
   const { orders, refetch } = useClientShopOrdersRealtime(initialOrders, userId);
+  const [filter, setFilter] = useState<ShopCatalogFilterId>("all");
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,12 +40,16 @@ export function BoutiqueLive({
         </p>
       </section>
 
+      <BoutiqueCategoryFilters value={filter} onChange={setFilter} />
+
       <BoutiqueOrdersPanel orders={orders} onChanged={refetch} />
 
       <BoutiqueCatalog
         initialProducts={products}
         activeOrders={orders}
         onOrdersChanged={refetch}
+        filter={filter}
+        onClearFilter={() => setFilter("all")}
       />
 
       <Link
