@@ -2,24 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { fetchClientActiveShopOrdersAction } from "@/actions/shop-orders";
 import {
-  fetchCatalogProducts,
-  groupProductsByCategory,
-} from "@/lib/boutique/products";
-import type { ProductsByCategory, ShopProduct } from "@/lib/boutique/types";
+  shopOrdersChannelName,
+  type ShopOrder,
+} from "@/lib/boutique/orders";
 import { createClient } from "@/lib/supabase/client";
 
-export function useShopCatalogRealtime(initialProducts: ShopProduct[]) {
-  const [products, setProducts] = useState(initialProducts);
+export function useClientShopOrdersRealtime(
+  initialOrders: ShopOrder[],
+  userId: string,
+) {
+  const [orders, setOrders] = useState(initialOrders);
 
   useEffect(() => {
-    setProducts(initialProducts);
-  }, [initialProducts]);
+    setOrders(initialOrders);
+  }, [initialOrders]);
 
   const refetch = useCallback(async () => {
-    const supabase = createClient();
-    const next = await fetchCatalogProducts(supabase);
-    setProducts(next);
+    const next = await fetchClientActiveShopOrdersAction();
+    setOrders(next);
   }, []);
 
   useEffect(() => {
@@ -34,15 +36,20 @@ export function useShopCatalogRealtime(initialProducts: ShopProduct[]) {
     };
 
     const channel = supabase
-      .channel("shop:catalog")
+      .channel(shopOrdersChannelName(userId))
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "shop_products" },
+        {
+          event: "*",
+          schema: "public",
+          table: "shop_orders",
+          filter: `profile_id=eq.${userId}`,
+        },
         schedule,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "shop_orders" },
+        { event: "*", schema: "public", table: "shop_products" },
         schedule,
       )
       .subscribe((status) => {
@@ -59,11 +66,7 @@ export function useShopCatalogRealtime(initialProducts: ShopProduct[]) {
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
     };
-  }, [refetch]);
+  }, [refetch, userId]);
 
-  const categories = groupProductsByCategory(products);
-
-  return { products, categories };
+  return { orders, refetch };
 }
-
-export type { ProductsByCategory };

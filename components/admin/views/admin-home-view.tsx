@@ -9,13 +9,16 @@ import type {
 } from "@/components/admin/admin-types";
 import { AdminPendingRequestsSection } from "@/components/admin/views/admin-bookings-view";
 import { AdminPhantomRequestsSection } from "@/components/admin/views/admin-phantom-requests-section";
+import { AdminShopOrdersSection } from "@/components/admin/shop/admin-shop-orders-section";
 import { ADMIN_NAV_ITEMS } from "@/lib/admin/navigation";
+import type { AdminShopOrder } from "@/lib/boutique/orders";
 import type { AdminPhantomRequest } from "@/lib/phantom/requests";
 type AdminHomeViewProps = {
   stats: AdminStats;
   topClients: AdminClientRow[];
   pending: AdminBookingRow[];
   phantomRequests: AdminPhantomRequest[];
+  shopOrders: AdminShopOrder[];
 };
 
 export function AdminHomeView({
@@ -23,6 +26,7 @@ export function AdminHomeView({
   topClients,
   pending,
   phantomRequests,
+  shopOrders,
 }: AdminHomeViewProps) {
   const shortcuts = ADMIN_NAV_ITEMS.filter((n) => n.href !== "/admin");
 
@@ -46,6 +50,8 @@ export function AdminHomeView({
       <AdminPendingRequestsSection pending={pending} />
 
       <AdminPhantomRequestsSection requests={phantomRequests} />
+
+      <AdminShopOrdersSection orders={shopOrders} />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">

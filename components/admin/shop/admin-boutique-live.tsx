@@ -9,8 +9,13 @@ import {
   setShopProductActiveAction,
 } from "@/actions/shop-products";
 import { AdminProductForm } from "@/components/admin/shop/admin-product-form";
+import { AdminShopOrdersSection } from "@/components/admin/shop/admin-shop-orders-section";
 import { useAdminRealtimeRefetch } from "@/hooks/use-admin-realtime-refetch";
 import { shopCategoryLabel } from "@/lib/boutique/categories";
+import {
+  fetchAdminShopOrders,
+  type AdminShopOrder,
+} from "@/lib/boutique/orders";
 import { fetchAdminShopProducts, formatShopPrice } from "@/lib/boutique/products";
 import type { ShopProduct } from "@/lib/boutique/types";
 import { ADMIN_BOUTIQUE_SYNC } from "@/lib/realtime/admin-sync";
@@ -19,23 +24,33 @@ import { createClient } from "@/lib/supabase/client";
 
 type AdminBoutiqueLiveProps = {
   initialProducts: ShopProduct[];
+  initialOrders: AdminShopOrder[];
 };
 
 type PanelMode = { type: "create" } | { type: "edit"; product: ShopProduct };
 
-export function AdminBoutiqueLive({ initialProducts }: AdminBoutiqueLiveProps) {
+export function AdminBoutiqueLive({
+  initialProducts,
+  initialOrders,
+}: AdminBoutiqueLiveProps) {
   const [products, setProducts] = useState(initialProducts);
+  const [orders, setOrders] = useState(initialOrders);
   const [panel, setPanel] = useState<PanelMode | null>(null);
   const [actionPending, startAction] = useTransition();
 
   useEffect(() => {
     setProducts(initialProducts);
-  }, [initialProducts]);
+    setOrders(initialOrders);
+  }, [initialProducts, initialOrders]);
 
   const refetch = useCallback(async () => {
     const supabase = createClient();
-    const next = await fetchAdminShopProducts(supabase);
-    setProducts(next);
+    const [nextProducts, nextOrders] = await Promise.all([
+      fetchAdminShopProducts(supabase),
+      fetchAdminShopOrders(supabase),
+    ]);
+    setProducts(nextProducts);
+    setOrders(nextOrders);
   }, []);
 
   useAdminRealtimeRefetch(refetch, ADMIN_BOUTIQUE_SYNC, 400, "admin:boutique");
@@ -95,6 +110,8 @@ export function AdminBoutiqueLive({ initialProducts }: AdminBoutiqueLiveProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      <AdminShopOrdersSection orders={orders} />
+
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {products.length} produit{products.length > 1 ? "s" : ""} au catalogue

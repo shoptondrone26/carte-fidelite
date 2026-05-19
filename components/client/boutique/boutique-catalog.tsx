@@ -4,13 +4,20 @@ import { Package } from "lucide-react";
 
 import { ProductCard } from "@/components/client/boutique/product-card";
 import { useShopCatalogRealtime } from "@/hooks/use-shop-catalog-realtime";
+import type { ShopOrder } from "@/lib/boutique/orders";
 import type { ShopProduct } from "@/lib/boutique/types";
 
 type BoutiqueCatalogProps = {
   initialProducts: ShopProduct[];
+  activeOrders: ShopOrder[];
+  onOrdersChanged: () => void;
 };
 
-export function BoutiqueCatalog({ initialProducts }: BoutiqueCatalogProps) {
+export function BoutiqueCatalog({
+  initialProducts,
+  activeOrders,
+  onOrdersChanged,
+}: BoutiqueCatalogProps) {
   const { products, categories } = useShopCatalogRealtime(initialProducts);
 
   if (products.length === 0) {
@@ -40,7 +47,11 @@ export function BoutiqueCatalog({ initialProducts }: BoutiqueCatalogProps) {
           <ul className="grid grid-cols-2 gap-3">
             {group.products.map((product) => (
               <li key={product.id}>
-                <ProductCard product={product} />
+                <ProductCard
+                  product={product}
+                  activeOrders={activeOrders}
+                  onOrdered={onOrdersChanged}
+                />
               </li>
             ))}
           </ul>

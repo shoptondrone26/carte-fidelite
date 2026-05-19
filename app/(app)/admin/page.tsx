@@ -6,6 +6,7 @@ import {
   fetchAdminStats,
   fetchAdminTopClients,
 } from "@/lib/admin/data";
+import { fetchAdminShopOrders } from "@/lib/boutique/orders";
 import { fetchAdminPhantomRequests } from "@/lib/phantom/requests";
 import { requireAdmin } from "@/lib/admin/require-admin";
 
@@ -22,12 +23,15 @@ export default async function AdminDashboardPage() {
     supabase,
     pending.filter((b) => b.status === "pending").length,
   );
-  const [topClients, phantomRequests] = await Promise.all([
+  const [topClients, phantomRequests, shopOrders] = await Promise.all([
     fetchAdminTopClients(supabase),
     fetchAdminPhantomRequests(supabase),
+    fetchAdminShopOrders(supabase),
   ]);
 
   return (
-    <AdminHomeLive initial={{ stats, topClients, pending, phantomRequests }} />
+    <AdminHomeLive
+      initial={{ stats, topClients, pending, phantomRequests, shopOrders }}
+    />
   );
 }

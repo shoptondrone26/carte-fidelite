@@ -15,6 +15,10 @@ import {
   fetchAdminTopClients,
 } from "@/lib/admin/data";
 import {
+  fetchAdminShopOrders,
+  type AdminShopOrder,
+} from "@/lib/boutique/orders";
+import {
   fetchAdminPhantomRequests,
   type AdminPhantomRequest,
 } from "@/lib/phantom/requests";
@@ -27,6 +31,7 @@ type AdminHomeLiveProps = {
     topClients: AdminClientRow[];
     pending: AdminBookingRow[];
     phantomRequests: AdminPhantomRequest[];
+    shopOrders: AdminShopOrder[];
   };
 };
 
@@ -47,8 +52,11 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
       ),
       fetchAdminTopClients(supabase),
     ]);
-    const phantomRequests = await fetchAdminPhantomRequests(supabase);
-    setData({ stats, topClients, pending, phantomRequests });
+    const [phantomRequests, shopOrders] = await Promise.all([
+      fetchAdminPhantomRequests(supabase),
+      fetchAdminShopOrders(supabase),
+    ]);
+    setData({ stats, topClients, pending, phantomRequests, shopOrders });
   }, []);
 
   useAdminRealtimeRefetch(refetch, ADMIN_HOME_SYNC, 400, "admin:home");
@@ -59,6 +67,7 @@ export function AdminHomeLive({ initial }: AdminHomeLiveProps) {
       topClients={data.topClients}
       pending={data.pending}
       phantomRequests={data.phantomRequests}
+      shopOrders={data.shopOrders}
     />
   );
 }

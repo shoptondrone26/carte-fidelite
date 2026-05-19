@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { shopCategoryLabel } from "@/lib/boutique/categories";
+import { refreshShopOrders } from "@/lib/boutique/orders";
 import type { ProductsByCategory, ShopProduct } from "@/lib/boutique/types";
 
 const SELECT_COLUMNS =
@@ -39,6 +40,7 @@ export function mapShopProduct(row: ShopProductRow): ShopProduct {
 export async function fetchCatalogProducts(
   supabase: SupabaseClient,
 ): Promise<ShopProduct[]> {
+  await refreshShopOrders(supabase);
   const { data, error } = await supabase
     .from("shop_products")
     .select(SELECT_COLUMNS)
