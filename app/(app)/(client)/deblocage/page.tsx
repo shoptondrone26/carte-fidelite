@@ -83,7 +83,7 @@ export default async function DeblocagePage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-5 pb-8 pt-6">
       <header className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-amber-200/90">
           Fidélité

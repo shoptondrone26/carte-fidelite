@@ -2,13 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardLive } from "@/components/client/dashboard-live";
-import { signOut } from "@/actions/auth";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { fetchClientPhantomRequest } from "@/lib/phantom/requests";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
 import { createClient } from "@/lib/supabase/server";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -109,29 +106,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-8 px-5 pb-6 pt-[max(1.25rem,env(safe-area-inset-top))]">
-      <header className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Espace privé
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Votre statut membre et vos accès privilégiés.
-          </p>
-        </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "text-muted-foreground",
-            )}
-          >
-            Déconnexion
-          </button>
-        </form>
-      </header>
-
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-8 px-5 pb-6 pt-6">
       {error ? (
         <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error.message}
