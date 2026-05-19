@@ -44,6 +44,7 @@ export function ClientNavBar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch
               ref={(el) => {
                 if (active) activeRef.current = el;
               }}

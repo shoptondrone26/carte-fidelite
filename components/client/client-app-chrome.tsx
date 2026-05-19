@@ -4,8 +4,8 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ClientPrivateHeader } from "@/components/client/client-private-header";
+import { ClientPrivatePageTransition } from "@/components/client/client-private-page-transition";
 import { isClientPrivatePath } from "@/lib/client/navigation";
-import { cn } from "@/lib/utils";
 
 type ClientAppChromeProps = {
   children: ReactNode;
@@ -18,14 +18,11 @@ export function ClientAppChrome({ children }: ClientAppChromeProps) {
   return (
     <>
       {showPrivateChrome ? <ClientPrivateHeader /> : null}
-      <div
-        className={cn(
-          "flex flex-1 flex-col",
-          showPrivateChrome ? "min-h-0" : undefined,
-        )}
-      >
-        {children}
-      </div>
+      {showPrivateChrome ? (
+        <ClientPrivatePageTransition>{children}</ClientPrivatePageTransition>
+      ) : (
+        <div className="flex flex-1 flex-col">{children}</div>
+      )}
     </>
   );
 }

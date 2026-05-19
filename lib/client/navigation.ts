@@ -61,6 +61,9 @@ export function getClientNavTitle(pathname: string): string {
   if (pathname.startsWith("/deblocage")) {
     return "Espace privé";
   }
+  if (pathname.startsWith("/boutique")) {
+    return "Boutique";
+  }
   const item = CLIENT_NAV_ITEMS.find((entry) =>
     isClientNavActive(entry, pathname),
   );
@@ -70,6 +73,9 @@ export function getClientNavTitle(pathname: string): string {
 export function getClientNavSubtitle(pathname: string): string {
   if (pathname.startsWith("/deblocage")) {
     return "Réservation prioritaire";
+  }
+  if (pathname.startsWith("/boutique")) {
+    return "Produits et commandes membres";
   }
   const item = CLIENT_NAV_ITEMS.find((entry) =>
     isClientNavActive(entry, pathname),
