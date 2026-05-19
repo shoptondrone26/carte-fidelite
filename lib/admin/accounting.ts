@@ -4,6 +4,19 @@ export const UNLOCK_AMOUNTS_EUR = [150, 200] as const;
 
 export type UnlockAmountEur = (typeof UNLOCK_AMOUNTS_EUR)[number];
 
+export type RevenueBreakdown = {
+  total: number;
+  unlocks: number;
+  phantom: number;
+  /** Réservé boutique (écritures futures). */
+  shop: number;
+};
+
+export type PeriodRevenueKpi = RevenueBreakdown & {
+  /** Variation vs période précédente équivalente (%), null si non comparable. */
+  changePercent: number | null;
+};
+
 export type AccountingSummary = {
   revenueTotal: number;
   revenueUnlocks: number;
@@ -11,6 +24,9 @@ export type AccountingSummary = {
   revenueToday: number;
   revenueWeek: number;
   revenueMonth: number;
+  today: PeriodRevenueKpi;
+  week: PeriodRevenueKpi;
+  month: PeriodRevenueKpi;
   paidUnlocksCount: number;
   paidUnlocksToday: number;
   phantomModeCount: number;
@@ -190,14 +206,16 @@ function startOfDay(d = new Date()): string {
   return x.toISOString();
 }
 
-/** Semaine calendaire : lundi 00:00 (heure locale). */
-function startOfWeek(d = new Date()): string {
+function startOfDaysAgo(daysAgo: number, d = new Date()): string {
   const x = new Date(d);
-  const day = x.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  x.setDate(x.getDate() + mondayOffset);
   x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - daysAgo);
   return x.toISOString();
+}
+
+/** 7 derniers jours calendaires incluant aujourd'hui (J-6 → maintenant). */
+function startOfRolling7Days(d = new Date()): string {
+  return startOfDaysAgo(6, d);
 }
 
 function startOfMonth(d = new Date()): string {
@@ -262,6 +280,65 @@ function filterSince(rows: AmountRow[], sinceIso: string): AmountRow[] {
   return rows.filter((r) => Date.parse(r.created_at) >= since);
 }
 
+function filterBetween(
+  rows: AmountRow[],
+  startIso: string,
+  endIso: string,
+): AmountRow[] {
+  const start = Date.parse(startIso);
+  const end = Date.parse(endIso);
+  return rows.filter((r) => {
+    const t = Date.parse(r.created_at);
+    return t >= start && t < end;
+  });
+}
+
+function isShopTransaction(_row: { action_type: string }): boolean {
+  return false;
+}
+
+export function buildRevenueBreakdown(rows: AmountRow[]): RevenueBreakdown {
+  let unlocks = 0;
+  let phantom = 0;
+  let shop = 0;
+
+  for (const row of rows) {
+    if (isUnlockTransaction(row)) {
+      unlocks += row.amount_eur;
+    } else if (isPhantomModeTransaction(row)) {
+      phantom += row.amount_eur;
+    } else if (isShopTransaction(row)) {
+      shop += row.amount_eur;
+    }
+  }
+
+  return {
+    total: unlocks + phantom + shop,
+    unlocks,
+    phantom,
+    shop,
+  };
+}
+
+function percentChange(current: number, previous: number): number | null {
+  if (previous <= 0) {
+    return current > 0 ? null : null;
+  }
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+function periodKpi(
+  currentRows: AmountRow[],
+  previousRows: AmountRow[],
+): PeriodRevenueKpi {
+  const current = buildRevenueBreakdown(currentRows);
+  const previous = buildRevenueBreakdown(previousRows);
+  return {
+    ...current,
+    changePercent: percentChange(current.total, previous.total),
+  };
+}
+
 export function formatEur(amount: number): string {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -294,12 +371,30 @@ export async function fetchAccountingSummary(
   ]);
 
   const todayStart = startOfDay();
-  const weekStart = startOfWeek();
+  const yesterdayStart = startOfDaysAgo(1);
+  const weekStart = startOfRolling7Days();
+  const prevWeekStart = startOfDaysAgo(13);
+  const prevWeekEnd = startOfDaysAgo(6);
   const monthStart = startOfMonth();
+  const prevMonthStart = (() => {
+    const x = new Date();
+    x.setDate(1);
+    x.setHours(0, 0, 0, 0);
+    x.setMonth(x.getMonth() - 1);
+    return x.toISOString();
+  })();
+  const prevMonthEnd = monthStart;
 
   const todayRows = filterSince(rows, todayStart);
+  const yesterdayRows = filterBetween(rows, yesterdayStart, todayStart);
   const weekRows = filterSince(rows, weekStart);
+  const prevWeekRows = filterBetween(rows, prevWeekStart, prevWeekEnd);
   const monthRows = filterSince(rows, monthStart);
+  const prevMonthRows = filterBetween(rows, prevMonthStart, prevMonthEnd);
+
+  const today = periodKpi(todayRows, yesterdayRows);
+  const week = periodKpi(weekRows, prevWeekRows);
+  const month = periodKpi(monthRows, prevMonthRows);
 
   const unlockRows = rows.filter(isUnlockTransaction);
   const phantomRows = rows.filter(isPhantomModeTransaction);
@@ -312,9 +407,12 @@ export async function fetchAccountingSummary(
     revenueTotal,
     revenueUnlocks,
     revenuePhantom,
-    revenueToday: sumAmounts(todayRows),
-    revenueWeek: sumAmounts(weekRows),
-    revenueMonth: sumAmounts(monthRows),
+    revenueToday: today.total,
+    revenueWeek: week.total,
+    revenueMonth: month.total,
+    today,
+    week,
+    month,
     paidUnlocksCount,
     paidUnlocksToday: Math.max(0, netPaidUnlocks(todayRows)),
     phantomModeCount: completedPhantomModes(rows),
