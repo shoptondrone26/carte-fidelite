@@ -25,11 +25,13 @@ import {
 import {
   canClientCancelBooking,
   clientBookingStatusLabelFr,
-  isActiveClientBooking,
+  getVisibleClientBooking,
+  hasUnlockValidatedForBooking,
   type ClientPendingBooking,
 } from "@/lib/realtime/client-bookings";
 import { trackAnalyticsEvent } from "@/lib/analytics/client";
 import {
+  isActiveClientPhantomRequest,
   PHANTOM_AMOUNT_EUR,
   phantomClientMessage,
   phantomStatusLabelFr,
@@ -89,17 +91,14 @@ export function DashboardLive({
   const cycle = getCycleProgress(totalUnlocks);
   const freeEarned = getFreeEarned(totalUnlocks);
   const freeAvailable = getFreeAvailable(freeEarned, loyalty.freeUsedCount);
-  const activeBooking = isActiveClientBooking(booking, now.getTime())
-    ? booking
-    : null;
+  const activeBooking = getVisibleClientBooking(
+    booking,
+    loyalty.historyItems,
+    now.getTime(),
+  );
   const hasValidatedUnlock =
-    activeBooking?.status === "accepted" &&
-    loyalty.historyItems.some(
-      (item) =>
-        item.event_type === "unlock_validated" &&
-        new Date(item.created_at).getTime() >=
-          new Date(activeBooking.created_at).getTime(),
-    );
+    booking?.status === "accepted" &&
+    hasUnlockValidatedForBooking(booking, loyalty.historyItems);
   const canCancel =
     activeBooking &&
     !hasValidatedUnlock &&
@@ -192,7 +191,9 @@ export function DashboardLive({
       />
 
       <PhantomModeCard
-        request={phantomRequest}
+        request={
+          isActiveClientPhantomRequest(phantomRequest) ? phantomRequest : null
+        }
         confirmOpen={confirmPhantom}
         pending={phantomPending}
         onOpenConfirm={() => setConfirmPhantom(true)}
@@ -287,11 +288,6 @@ function PhantomModeCard({
   onCloseConfirm: () => void;
   onConfirm: () => void;
 }) {
-  const canCreateAgain =
-    request?.status === "completed" ||
-    request?.status === "refused" ||
-    request?.status === "cancelled";
-
   return (
     <section className="relative overflow-hidden rounded-3xl border border-amber-200/20 bg-linear-to-br from-black via-zinc-950 to-amber-950/20 p-5 shadow-2xl shadow-amber-950/20">
       <div
@@ -356,19 +352,6 @@ function PhantomModeCard({
                 </li>
               ))}
             </ol>
-            {canCreateAgain ? (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={onOpenConfirm}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-11 w-full justify-center border-amber-300/25 bg-black/20 text-amber-100 hover:bg-amber-300/10",
-                )}
-              >
-                Demander à nouveau le Mode Fantôme
-              </button>
-            ) : null}
           </div>
         ) : confirmOpen ? (
           <div className="space-y-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">

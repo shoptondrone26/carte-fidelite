@@ -49,6 +49,7 @@ export function DeblocageLive({
       displayName={displayName}
       totalUnlocks={loyalty.totalUnlocks}
       freeUsedCount={loyalty.freeUsedCount}
+      historyItems={loyalty.historyItems}
       pending={pending}
       onPendingChange={setPending}
     />

@@ -108,6 +108,34 @@ export function isActiveClientBooking(
   return new Date(booking.starts_at).getTime() > nowMs;
 }
 
+export type ClientHistoryUnlockCheck = {
+  event_type: string;
+  created_at: string;
+};
+
+export function hasUnlockValidatedForBooking(
+  booking: ClientPendingBooking,
+  historyItems: ClientHistoryUnlockCheck[],
+): boolean {
+  const bookingCreatedMs = new Date(booking.created_at).getTime();
+  return historyItems.some(
+    (item) =>
+      item.event_type === "unlock_validated" &&
+      new Date(item.created_at).getTime() >= bookingCreatedMs,
+  );
+}
+
+/** Réservation affichée sur le dashboard / déblocage (hors déblocage déjà validé). */
+export function getVisibleClientBooking(
+  booking: ClientPendingBooking | null,
+  historyItems: ClientHistoryUnlockCheck[],
+  nowMs = Date.now(),
+): ClientPendingBooking | null {
+  if (!booking || !isActiveClientBooking(booking, nowMs)) return null;
+  if (hasUnlockValidatedForBooking(booking, historyItems)) return null;
+  return booking;
+}
+
 export function canClientCancelBooking(
   booking: ClientPendingBooking,
   nowMs = Date.now(),

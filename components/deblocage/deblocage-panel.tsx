@@ -22,15 +22,18 @@ import { formatSlotDateTime } from "@/lib/booking/format";
 import {
   canClientCancelBooking,
   clientBookingStatusLabelFr,
-  isActiveClientBooking,
+  getVisibleClientBooking,
 } from "@/lib/realtime/client-bookings";
-
-import type { ClientPendingBooking } from "@/lib/realtime/client-bookings";
+import type {
+  ClientHistoryUnlockCheck,
+  ClientPendingBooking,
+} from "@/lib/realtime/client-bookings";
 
 type DeblocagePanelProps = {
   displayName: string;
   totalUnlocks: number;
   freeUsedCount: number;
+  historyItems: ClientHistoryUnlockCheck[];
   pending: ClientPendingBooking | null;
   onPendingChange?: React.Dispatch<
     React.SetStateAction<ClientPendingBooking | null>
@@ -41,6 +44,7 @@ export function DeblocagePanel({
   displayName,
   totalUnlocks,
   freeUsedCount,
+  historyItems,
   pending,
   onPendingChange,
 }: DeblocagePanelProps) {
@@ -53,7 +57,11 @@ export function DeblocagePanel({
   const freeEarned = getFreeEarned(totalUnlocks);
   const freeAvailable = getFreeAvailable(freeEarned, freeUsedCount);
   const untilFree = getStampsUntilNextFree(totalUnlocks);
-  const activeBooking = isActiveClientBooking(pending) ? pending : null;
+  const activeBooking = getVisibleClientBooking(
+    pending,
+    historyItems,
+    now.getTime(),
+  );
   const canCancel =
     activeBooking && canClientCancelBooking(activeBooking, now.getTime());
 

@@ -57,6 +57,14 @@ export const PHANTOM_ACTIVE_STATUSES: PhantomRequestStatus[] = [
   "in_progress",
 ];
 
+export function isActiveClientPhantomRequest(
+  request: PhantomRequest | null,
+): request is PhantomRequest {
+  return (
+    request !== null && PHANTOM_ACTIVE_STATUSES.includes(request.status)
+  );
+}
+
 export const phantomStatusLabelFr: Record<PhantomRequestStatus, string> = {
   pending: "Demande envoyée",
   accepted: "Demande acceptée",
@@ -154,6 +162,7 @@ export async function fetchClientPhantomRequest(
       "id, profile_id, status, amount_eur, admin_note, created_at, updated_at, accepted_at, payment_pending_at, paid_at, started_at, completed_at, cancelled_at, handled_by",
     )
     .eq("profile_id", userId)
+    .in("status", PHANTOM_ACTIVE_STATUSES)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -8,6 +8,7 @@ import type {
 
 import {
   fetchClientPhantomRequest,
+  isActiveClientPhantomRequest,
   mapPhantomRequest,
   phantomRequestsChannelName,
   type PhantomRequest,
@@ -54,7 +55,9 @@ export function useClientPhantomRealtime(
     ) => {
       const row = mapPhantomRequest(payload.new as never);
       if (row) {
-        setPhantomRequest(row);
+        setPhantomRequest(isActiveClientPhantomRequest(row) ? row : null);
+      } else {
+        setPhantomRequest(null);
       }
       scheduleRefetch();
     };
