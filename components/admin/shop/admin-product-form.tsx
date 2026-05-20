@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 type AdminProductFormProps = {
   product?: ShopProduct | null;
   allProducts: ShopProduct[];
-  onSaved: (product: ShopProduct) => void;
+  onSaved: (product: ShopProduct, wasUpdate: boolean) => void;
   onCancel: () => void;
 };
 
@@ -72,8 +72,9 @@ export function AdminProductForm({
       });
 
       if (res.ok && res.product) {
-        toast.success(product ? "Produit mis à jour" : "Produit créé");
-        onSaved(res.product);
+        const wasUpdate = Boolean(product?.id);
+        toast.success(wasUpdate ? "Produit mis à jour" : "Produit créé");
+        onSaved(res.product, wasUpdate);
       } else if (!res.ok) {
         toast.error("Enregistrement impossible", { description: res.error });
       }

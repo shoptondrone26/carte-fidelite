@@ -55,7 +55,7 @@ export function AdminBoutiqueLive({
 
   useAdminRealtimeRefetch(refetch, ADMIN_BOUTIQUE_SYNC, 400, "admin:boutique");
 
-  function onSaved(product: ShopProduct) {
+  function onSaved(product: ShopProduct, wasUpdate: boolean) {
     setProducts((prev) => {
       const idx = prev.findIndex((p) => p.id === product.id);
       if (idx === -1) return [product, ...prev];
@@ -63,7 +63,11 @@ export function AdminBoutiqueLive({
       copy[idx] = product;
       return copy;
     });
-    setPanel({ type: "edit", product });
+    if (wasUpdate) {
+      setPanel(null);
+    } else {
+      setPanel({ type: "edit", product });
+    }
   }
 
   function toggleActive(product: ShopProduct) {
