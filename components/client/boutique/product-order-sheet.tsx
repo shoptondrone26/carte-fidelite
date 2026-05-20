@@ -5,12 +5,20 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { createShopOrderAction } from "@/actions/shop-orders";
+import {
+  PaymentFeeBreakdown,
+  ShopPaymentSelector,
+} from "@/components/client/boutique/shop-payment-selector";
 import { buttonVariants } from "@/components/ui/button";
 import { formatShopPrice } from "@/lib/boutique/products";
 import {
   shopDeliveryLabelFr,
   type ShopDeliveryMethod,
 } from "@/lib/boutique/orders";
+import {
+  computeShopPaymentTotals,
+  type ShopPaymentMethod,
+} from "@/lib/boutique/payment";
 import type { ShopProduct } from "@/lib/boutique/types";
 import {
   clientBottomSheetMaxHeightClass,
@@ -34,7 +42,18 @@ export function ProductOrderSheet({
   onOrdered,
 }: ProductOrderSheetProps) {
   const [delivery, setDelivery] = useState<ShopDeliveryMethod>("pickup");
+  const [paymentMethod, setPaymentMethod] =
+    useState<ShopPaymentMethod>("wire_transfer");
+  const [pscAmount, setPscAmount] = useState("");
   const [pending, start] = useTransition();
+
+  const subtotalEur = product.price_eur;
+  const paymentTotals = computeShopPaymentTotals(
+    subtotalEur,
+    delivery,
+    paymentMethod,
+    parsePscAmount(pscAmount),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -49,9 +68,22 @@ export function ProductOrderSheet({
 
   const outOfStock = product.stock <= 0;
 
+  useEffect(() => {
+    if (delivery === "pickup") {
+      setPaymentMethod("wire_transfer");
+      setPscAmount("");
+    }
+  }, [delivery]);
+
   function submit() {
     start(async () => {
-      const res = await createShopOrderAction(product.id, delivery);
+      const res = await createShopOrderAction(
+        product.id,
+        delivery,
+        1,
+        paymentMethod,
+        parsePscAmount(pscAmount),
+      );
       if (res.ok) {
         toast.success("Demande envoyée");
         onOpenChange(false);
@@ -136,6 +168,22 @@ export function ProductOrderSheet({
             ))}
           </div>
 
+          {delivery === "chronopost_24h" ? (
+            <ShopPaymentSelector
+              subtotalEur={subtotalEur}
+              paymentMethod={paymentMethod}
+              pscAmountEur={pscAmount}
+              onPaymentMethodChange={setPaymentMethod}
+              onPscAmountChange={setPscAmount}
+              disabled={pending}
+            />
+          ) : (
+            <PaymentFeeBreakdown
+              totals={paymentTotals}
+              className="mb-5"
+            />
+          )}
+
           {hasActiveOrder ? (
             <p className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               Une commande est déjà en cours pour ce produit.
@@ -157,4 +205,9 @@ export function ProductOrderSheet({
       </div>
     </div>
   );
+}
+
+function parsePscAmount(value: string): number {
+  const n = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }

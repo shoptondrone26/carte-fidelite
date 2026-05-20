@@ -9,7 +9,7 @@ import { ProductGallery } from "@/components/client/boutique/product-gallery";
 import {
   PackTotalSummary,
   ProductPackOptions,
-  useProductPackSelection,
+  useProductPackQuantities,
 } from "@/components/client/boutique/product-pack-options";
 import { ShopCartTrigger } from "@/components/client/boutique/shop-cart-trigger";
 import { buttonVariants } from "@/components/ui/button";
@@ -36,10 +36,9 @@ export function ProductDetailView({
   const qtyInCart = getQuantity(product.id);
   const images = productImageUrls(product);
 
-  const { selectedIds, toggle, selectedProducts } =
-    useProductPackSelection(recommendations);
+  const { quantities, setQuantity, packLines, hasSelectedOptions } =
+    useProductPackQuantities(recommendations);
   const hasPackOptions = recommendations.some((p) => p.id !== product.id);
-  const hasSelectedOptions = selectedProducts.length > 0;
 
   function onAddToCart() {
     if (outOfStock) return;
@@ -58,7 +57,10 @@ export function ProductDetailView({
 
     const entries = [
       { product, quantity: 1 },
-      ...selectedProducts.map((p) => ({ product: p, quantity: 1 })),
+      ...packLines.map((line) => ({
+        product: line.product,
+        quantity: line.quantity,
+      })),
     ];
     const { addedCount, addedNames } = addProducts(entries);
 
@@ -150,15 +152,15 @@ export function ProductDetailView({
             <ProductPackOptions
               mainProduct={product}
               options={recommendations}
-              selectedIds={selectedIds}
-              onToggle={toggle}
+              quantities={quantities}
+              onQuantityChange={setQuantity}
             />
           ) : null}
 
           {hasPackOptions && !outOfStock ? (
             <PackTotalSummary
               mainProduct={product}
-              selected={selectedProducts}
+              lines={packLines}
             />
           ) : null}
 

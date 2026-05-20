@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Minus, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { submitShopCartOrdersAction } from "@/actions/shop-orders";
+import {
+  PaymentFeeBreakdown,
+  ShopPaymentSelector,
+} from "@/components/client/boutique/shop-payment-selector";
 import { buttonVariants } from "@/components/ui/button";
-import { useShopCart } from "@/lib/boutique/cart";
+import { useShopCart, cartTotalEur } from "@/lib/boutique/cart";
 import { fetchCatalogProducts, formatShopPrice } from "@/lib/boutique/products";
 import {
   shopDeliveryLabelFr,
   type ShopDeliveryMethod,
 } from "@/lib/boutique/orders";
+import {
+  computeShopPaymentTotals,
+  type ShopPaymentMethod,
+} from "@/lib/boutique/payment";
 import {
   clientBottomSheetMaxHeightClass,
   clientBottomSheetPanelClass,
@@ -35,15 +43,37 @@ export function ShopCartDrawer({
   const {
     items,
     itemCount,
-    totalEur,
     setQuantity,
     removeProduct,
     clearCart,
     syncStockFromCatalog,
   } = useShopCart();
   const [delivery, setDelivery] = useState<ShopDeliveryMethod>("pickup");
+  const [paymentMethod, setPaymentMethod] =
+    useState<ShopPaymentMethod>("wire_transfer");
+  const [pscAmount, setPscAmount] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  const subtotalEur = useMemo(() => cartTotalEur(items), [items]);
+
+  const paymentTotals = useMemo(
+    () =>
+      computeShopPaymentTotals(
+        subtotalEur,
+        delivery,
+        paymentMethod,
+        parsePscAmount(pscAmount),
+      ),
+    [subtotalEur, delivery, paymentMethod, pscAmount],
+  );
+
+  useEffect(() => {
+    if (delivery === "pickup") {
+      setPaymentMethod("wire_transfer");
+      setPscAmount("");
+    }
+  }, [delivery]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +101,29 @@ export function ShopCartDrawer({
 
   function onSubmit() {
     if (items.length === 0) return;
+
+    if (
+      delivery === "chronopost_24h" &&
+      paymentMethod === "mixed" &&
+      parsePscAmount(pscAmount) <= 0
+    ) {
+      toast.error("Montant PSC requis", {
+        description: "Indiquez le montant payé en Paysafecard.",
+      });
+      return;
+    }
+
+    if (
+      delivery === "chronopost_24h" &&
+      paymentMethod === "mixed" &&
+      parsePscAmount(pscAmount) >= subtotalEur
+    ) {
+      toast.error("Montant PSC invalide", {
+        description: "Le montant PSC doit être inférieur au sous-total produits.",
+      });
+      return;
+    }
+
     startTransition(async () => {
       const res = await submitShopCartOrdersAction(
         items.map((i) => ({
@@ -79,6 +132,8 @@ export function ShopCartDrawer({
           name: i.name,
         })),
         delivery,
+        paymentMethod,
+        parsePscAmount(pscAmount),
       );
 
       if (!res.ok) {
@@ -91,6 +146,9 @@ export function ShopCartDrawer({
           "Rendez-vous sur Snapchat pour finaliser le paiement avec ShopTonDrone.",
       });
       clearCart();
+      setDelivery("pickup");
+      setPaymentMethod("wire_transfer");
+      setPscAmount("");
       onOpenChange(false);
 
       router.refresh();
@@ -170,6 +228,9 @@ export function ShopCartDrawer({
                     </p>
                     <p className="text-xs tabular-nums text-amber-100/90">
                       {formatShopPrice(item.priceEur)} / unité
+                      {item.quantity > 1
+                        ? ` · ${formatShopPrice(item.priceEur * item.quantity)}`
+                        : ""}
                     </p>
                     <p className="text-[10px] text-zinc-500">
                       Stock : {item.stockMax}
@@ -231,7 +292,7 @@ export function ShopCartDrawer({
                 <label
                   key={method}
                   className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                    "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition duration-200",
                     delivery === method
                       ? "border-amber-300/40 bg-amber-300/10"
                       : "border-white/10 bg-black/20",
@@ -251,15 +312,21 @@ export function ShopCartDrawer({
               ))}
             </div>
 
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm text-zinc-400">Total</span>
-              <span className="text-xl font-semibold tabular-nums text-amber-50">
-                {formatShopPrice(totalEur)}
-              </span>
-            </div>
+            {delivery === "chronopost_24h" ? (
+              <ShopPaymentSelector
+                subtotalEur={subtotalEur}
+                paymentMethod={paymentMethod}
+                pscAmountEur={pscAmount}
+                onPaymentMethodChange={setPaymentMethod}
+                onPscAmountChange={setPscAmount}
+                disabled={pending}
+              />
+            ) : (
+              <PaymentFeeBreakdown totals={paymentTotals} />
+            )}
 
             <p className="text-[11px] leading-relaxed text-zinc-500">
-              Une demande par produit sera créée. Paiement manuel sur Snapchat.
+              Une commande groupée sera créée. Paiement manuel sur Snapchat.
             </p>
 
             <button
@@ -287,4 +354,9 @@ export function ShopCartDrawer({
       </div>
     </div>
   );
+}
+
+function parsePscAmount(value: string): number {
+  const n = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
 }

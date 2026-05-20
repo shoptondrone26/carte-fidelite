@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 
 import { cancelShopOrderAction } from "@/actions/shop-orders";
+import { ShopOrderPaymentDetails } from "@/components/client/boutique/shop-order-payment-details";
 import { buttonVariants } from "@/components/ui/button";
 import { formatShopPrice } from "@/lib/boutique/products";
 import {
@@ -87,10 +88,8 @@ function BoutiqueOrderCard({
               ))}
             </ul>
           ) : null}
-          <p className="mt-2 text-sm tabular-nums text-amber-100">
-            {formatShopPrice(order.total_price_eur)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">
+          <ShopOrderPaymentDetails order={order} compact className="mt-2" />
+          <p className="mt-2 text-xs text-zinc-400">
             {shopDeliveryLabelFr[order.delivery_method]}
           </p>
         </div>

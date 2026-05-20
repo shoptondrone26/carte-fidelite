@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { adminUpdateShopOrderStatusAction } from "@/actions/shop-orders";
+import { ShopOrderPaymentDetails } from "@/components/client/boutique/shop-order-payment-details";
 import { buttonVariants } from "@/components/ui/button";
 import { formatShopPrice } from "@/lib/boutique/products";
 import {
@@ -143,9 +144,7 @@ export function AdminShopOrdersSection({ orders }: AdminShopOrdersSectionProps) 
                       ))}
                     </ul>
 
-                    <p className="mt-2 text-sm font-semibold tabular-nums text-amber-100">
-                      Total {formatShopPrice(order.total_price_eur)}
-                    </p>
+                    <ShopOrderPaymentDetails order={order} className="mt-2" />
                     <p className="mt-1 text-xs text-muted-foreground">
                       {shopDeliveryLabelFr[order.delivery_method]}
                     </p>

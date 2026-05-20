@@ -1,6 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  shopPaymentMethodLabelFr,
+  type ShopPaymentMethod,
+} from "@/lib/boutique/payment";
+
 export type ShopDeliveryMethod = "pickup" | "chronopost_24h";
+
+export type { ShopPaymentMethod };
+export { shopPaymentMethodLabelFr };
 
 export type ShopOrderStatus =
   | "payment_pending"
@@ -32,6 +40,10 @@ export type ShopOrder = {
   delivery_method: ShopDeliveryMethod;
   quantity: number;
   unit_price_eur: number;
+  subtotal_eur: number;
+  payment_method: ShopPaymentMethod;
+  psc_amount_eur: number;
+  payment_fee_eur: number;
   total_price_eur: number;
   product_name: string;
   product_image_url: string | null;
@@ -191,7 +203,7 @@ export function shopOrderDisplayTitle(order: ShopOrder): string {
 }
 
 const ORDER_SELECT =
-  "id, profile_id, product_id, status, delivery_method, quantity, unit_price_eur, total_price_eur, product_name, product_image_url, admin_note, tracking_number, created_at, updated_at, expires_at, paid_at, preparing_at, shipped_at, completed_at, cancelled_at, refused_at, expired_at, handled_by, stock_reserved";
+  "id, profile_id, product_id, status, delivery_method, quantity, unit_price_eur, subtotal_eur, payment_method, psc_amount_eur, payment_fee_eur, total_price_eur, product_name, product_image_url, admin_note, tracking_number, created_at, updated_at, expires_at, paid_at, preparing_at, shipped_at, completed_at, cancelled_at, refused_at, expired_at, handled_by, stock_reserved";
 
 const ITEM_SELECT =
   "id, order_id, product_id, product_name, product_image_url, unit_price_eur, quantity, line_total_eur, sort_order";
@@ -208,11 +220,23 @@ type ShopOrderItemRow = Omit<
 
 type ShopOrderRow = Omit<
   ShopOrder,
-  "status" | "delivery_method" | "unit_price_eur" | "total_price_eur" | "items"
+  | "status"
+  | "delivery_method"
+  | "unit_price_eur"
+  | "subtotal_eur"
+  | "payment_method"
+  | "psc_amount_eur"
+  | "payment_fee_eur"
+  | "total_price_eur"
+  | "items"
 > & {
   status: string;
   delivery_method: string;
   unit_price_eur: number | string;
+  subtotal_eur?: number | string | null;
+  payment_method?: string | null;
+  psc_amount_eur?: number | string | null;
+  payment_fee_eur?: number | string | null;
   total_price_eur: number | string;
   shop_order_items?: ShopOrderItemRow[] | null;
 };
@@ -239,15 +263,39 @@ function mapShopOrder(row: ShopOrderRow): ShopOrder {
 
   const { shop_order_items: _items, ...rest } = row;
 
+  const subtotal =
+    rest.subtotal_eur != null
+      ? Number(rest.subtotal_eur)
+      : Number(rest.total_price_eur);
+  const paymentFee =
+    rest.payment_fee_eur != null ? Number(rest.payment_fee_eur) : 0;
+  const pscAmount =
+    rest.psc_amount_eur != null ? Number(rest.psc_amount_eur) : 0;
+
   return {
     ...rest,
     status: rest.status as ShopOrderStatus,
     delivery_method: rest.delivery_method as ShopDeliveryMethod,
     unit_price_eur: Number(rest.unit_price_eur),
+    subtotal_eur: subtotal,
+    payment_method: (rest.payment_method ?? "wire_transfer") as ShopPaymentMethod,
+    psc_amount_eur: pscAmount,
+    payment_fee_eur: paymentFee,
     total_price_eur: Number(rest.total_price_eur),
     tracking_number: rest.tracking_number ?? null,
     items,
   };
+}
+
+export function shopOrderPaymentSummary(order: ShopOrder): string | null {
+  if (order.delivery_method !== "chronopost_24h") return null;
+  const parts = [shopPaymentMethodLabelFr[order.payment_method]];
+  if (order.payment_fee_eur > 0) {
+    parts.push(`frais +${order.payment_fee_eur.toFixed(2)} €`);
+  } else {
+    parts.push("0% de frais");
+  }
+  return parts.join(" · ");
 }
 
 export async function refreshShopOrders(supabase: SupabaseClient): Promise<void> {

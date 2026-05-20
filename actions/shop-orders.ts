@@ -5,11 +5,14 @@ import { z } from "zod";
 
 import type { ShopDeliveryMethod, ShopOrder } from "@/lib/boutique/orders";
 import { fetchClientActiveShopOrders } from "@/lib/boutique/orders";
+import type { ShopPaymentMethod } from "@/lib/boutique/payment";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
 const orderIdSchema = z.string().uuid();
 const deliverySchema = z.enum(["pickup", "chronopost_24h"]);
+const paymentMethodSchema = z.enum(["wire_transfer", "paysafecard", "mixed"]);
+const pscAmountSchema = z.coerce.number().min(0).max(999_999);
 const productIdSchema = z.string().uuid();
 const quantitySchema = z.coerce.number().int().min(1).max(99);
 const cartLineSchema = z.object({
@@ -39,6 +42,10 @@ function mapRpcOrder(row: Record<string, unknown> | null): ShopOrder | undefined
     delivery_method: row.delivery_method as ShopDeliveryMethod,
     quantity: Number(row.quantity),
     unit_price_eur: Number(row.unit_price_eur),
+    subtotal_eur: Number(row.subtotal_eur ?? row.total_price_eur),
+    payment_method: (row.payment_method ?? "wire_transfer") as ShopPaymentMethod,
+    psc_amount_eur: Number(row.psc_amount_eur ?? 0),
+    payment_fee_eur: Number(row.payment_fee_eur ?? 0),
     total_price_eur: Number(row.total_price_eur),
     product_name: String(row.product_name),
     product_image_url: (row.product_image_url as string | null) ?? null,
@@ -86,11 +93,23 @@ export async function createShopOrderAction(
   rawProductId: unknown,
   rawDeliveryMethod: unknown,
   rawQuantity?: unknown,
+  rawPaymentMethod?: unknown,
+  rawPscAmountEur?: unknown,
 ): Promise<ShopOrderActionResult> {
   const productId = productIdSchema.safeParse(rawProductId);
   const delivery = deliverySchema.safeParse(rawDeliveryMethod);
   const quantity = quantitySchema.safeParse(rawQuantity ?? 1);
-  if (!productId.success || !delivery.success || !quantity.success) {
+  const paymentParsed = paymentMethodSchema.safeParse(
+    rawPaymentMethod ?? "wire_transfer",
+  );
+  const pscParsed = pscAmountSchema.safeParse(rawPscAmountEur ?? 0);
+  if (
+    !productId.success ||
+    !delivery.success ||
+    !quantity.success ||
+    !paymentParsed.success ||
+    !pscParsed.success
+  ) {
     return { ok: false, error: "Commande invalide." };
   }
 
@@ -107,6 +126,8 @@ export async function createShopOrderAction(
     p_product_id: productId.data,
     p_delivery_method: delivery.data,
     p_quantity: quantity.data,
+    p_payment_method: paymentParsed.data,
+    p_psc_amount_eur: pscParsed.data,
   });
 
   if (error) {
@@ -127,10 +148,35 @@ export type SubmitShopCartResult =
 export async function submitShopCartOrdersAction(
   rawLines: unknown,
   rawDeliveryMethod: unknown,
+  rawPaymentMethod?: unknown,
+  rawPscAmountEur?: unknown,
 ): Promise<SubmitShopCartResult> {
   const delivery = deliverySchema.safeParse(rawDeliveryMethod);
   if (!delivery.success) {
     return { ok: false, error: "Mode de livraison invalide." };
+  }
+
+  const paymentParsed = paymentMethodSchema.safeParse(
+    rawPaymentMethod ?? "wire_transfer",
+  );
+  if (!paymentParsed.success) {
+    return { ok: false, error: "Mode de paiement invalide." };
+  }
+
+  const pscParsed = pscAmountSchema.safeParse(rawPscAmountEur ?? 0);
+  if (!pscParsed.success) {
+    return { ok: false, error: "Montant Paysafecard invalide." };
+  }
+
+  if (
+    paymentParsed.data === "mixed" &&
+    delivery.data === "chronopost_24h" &&
+    pscParsed.data <= 0
+  ) {
+    return {
+      ok: false,
+      error: "Indiquez le montant payé en Paysafecard pour le mode mixte.",
+    };
   }
 
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
@@ -161,6 +207,8 @@ export async function submitShopCartOrdersAction(
   const { data, error } = await supabase.rpc("create_shop_cart_order", {
     p_lines: lines,
     p_delivery_method: delivery.data,
+    p_payment_method: paymentParsed.data,
+    p_psc_amount_eur: pscParsed.data,
   });
 
   if (error) {
