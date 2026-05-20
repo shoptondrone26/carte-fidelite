@@ -25,6 +25,10 @@ export type ShopCartContextValue = {
   lineCount: number;
   totalEur: number;
   addProduct: (product: ShopProduct, quantity?: number) => boolean;
+  /** Ajoute plusieurs produits (ex. pack principal + options). */
+  addProducts: (
+    entries: { product: ShopProduct; quantity?: number }[],
+  ) => { addedCount: number; addedNames: string[] };
   setQuantity: (productId: string, quantity: number) => void;
   removeProduct: (productId: string) => void;
   clearCart: () => void;

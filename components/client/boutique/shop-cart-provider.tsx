@@ -71,6 +71,21 @@ export function ShopCartProvider({ children }: { children: React.ReactNode }) {
     return added;
   }, []);
 
+  const addProducts = useCallback(
+    (entries: { product: ShopProduct; quantity?: number }[]) => {
+      const addedNames: string[] = [];
+      let addedCount = 0;
+      for (const { product, quantity = 1 } of entries) {
+        if (addProduct(product, quantity)) {
+          addedCount += 1;
+          addedNames.push(product.name);
+        }
+      }
+      return { addedCount, addedNames };
+    },
+    [addProduct],
+  );
+
   const setQuantity = useCallback((productId: string, quantity: number) => {
     setItems((prev) => {
       if (quantity < 1) {
@@ -135,6 +150,7 @@ export function ShopCartProvider({ children }: { children: React.ReactNode }) {
       lineCount: items.length,
       totalEur,
       addProduct,
+      addProducts,
       setQuantity,
       removeProduct,
       clearCart,
@@ -147,6 +163,7 @@ export function ShopCartProvider({ children }: { children: React.ReactNode }) {
       itemCount,
       totalEur,
       addProduct,
+      addProducts,
       setQuantity,
       removeProduct,
       clearCart,

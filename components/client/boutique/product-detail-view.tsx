@@ -6,7 +6,11 @@ import { ArrowLeft, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
 import { ProductGallery } from "@/components/client/boutique/product-gallery";
-import { ProductRecommendations } from "@/components/client/boutique/product-recommendations";
+import {
+  PackTotalSummary,
+  ProductPackOptions,
+  useProductPackSelection,
+} from "@/components/client/boutique/product-pack-options";
 import { ShopCartTrigger } from "@/components/client/boutique/shop-cart-trigger";
 import { buttonVariants } from "@/components/ui/button";
 import { useShopCart, useShopCartUi } from "@/lib/boutique/cart";
@@ -25,24 +29,58 @@ export function ProductDetailView({
   product,
   recommendations,
 }: ProductDetailViewProps) {
-  const { addProduct, getQuantity } = useShopCart();
+  const { addProduct, addProducts, getQuantity } = useShopCart();
   const { openCart } = useShopCartUi();
   const [addedFlash, setAddedFlash] = useState(false);
   const outOfStock = product.stock <= 0;
   const qtyInCart = getQuantity(product.id);
   const images = productImageUrls(product);
 
+  const { selectedIds, toggle, selectedProducts } =
+    useProductPackSelection(recommendations);
+  const hasPackOptions = recommendations.some((p) => p.id !== product.id);
+  const hasSelectedOptions = selectedProducts.length > 0;
+
   function onAddToCart() {
     if (outOfStock) return;
-    const ok = addProduct(product, 1);
-    if (ok) {
-      setAddedFlash(true);
-      toast.success("Ajouté au panier", { description: product.name });
-      window.setTimeout(() => setAddedFlash(false), 1200);
-    } else {
-      toast.message("Stock maximum atteint");
+
+    if (!hasSelectedOptions) {
+      const ok = addProduct(product, 1);
+      if (ok) {
+        setAddedFlash(true);
+        toast.success("Ajouté au panier", { description: product.name });
+        window.setTimeout(() => setAddedFlash(false), 1200);
+      } else {
+        toast.message("Stock maximum atteint");
+      }
+      return;
     }
+
+    const entries = [
+      { product, quantity: 1 },
+      ...selectedProducts.map((p) => ({ product: p, quantity: 1 })),
+    ];
+    const { addedCount, addedNames } = addProducts(entries);
+
+    if (addedCount === 0) {
+      toast.message("Stock maximum atteint pour les articles sélectionnés");
+      return;
+    }
+
+    setAddedFlash(true);
+    const description =
+      addedNames.length > 1
+        ? `${addedNames.slice(0, 3).join(", ")}${addedNames.length > 3 ? "…" : ""}`
+        : addedNames[0];
+    toast.success("Pack ajouté au panier", { description });
+    window.setTimeout(() => setAddedFlash(false), 1200);
   }
+
+  const ctaLabel = outOfStock
+    ? "Rupture"
+    : hasSelectedOptions
+      ? "Ajouter le pack au panier"
+      : "Ajouter au panier";
 
   return (
     <div className="flex min-w-0 flex-col gap-8 pb-4 animate-in fade-in duration-300">
@@ -108,6 +146,22 @@ export function ProductDetailView({
             </div>
           ) : null}
 
+          {hasPackOptions ? (
+            <ProductPackOptions
+              mainProduct={product}
+              options={recommendations}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+            />
+          ) : null}
+
+          {hasPackOptions && !outOfStock ? (
+            <PackTotalSummary
+              mainProduct={product}
+              selected={selectedProducts}
+            />
+          ) : null}
+
           <button
             type="button"
             disabled={outOfStock}
@@ -119,7 +173,7 @@ export function ProductDetailView({
             )}
           >
             <ShoppingBag className="size-4" aria-hidden />
-            {outOfStock ? "Rupture" : "Ajouter au panier"}
+            {ctaLabel}
           </button>
 
           <p className="text-center text-[11px] text-zinc-500">
@@ -127,13 +181,6 @@ export function ProductDetailView({
           </p>
         </div>
       </div>
-
-      {recommendations.length > 0 ? (
-        <ProductRecommendations
-          products={recommendations}
-          currentProductId={product.id}
-        />
-      ) : null}
     </div>
   );
 }
