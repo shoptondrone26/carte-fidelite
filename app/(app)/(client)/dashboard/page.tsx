@@ -106,7 +106,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-8 px-5 pb-6 pt-6">
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 overflow-x-hidden px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
       {error ? (
         <p className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error.message}

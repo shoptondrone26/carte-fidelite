@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { Clock3, Crown, ShieldCheck, Sparkles } from "lucide-react";
+import { Clock3, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { cancelPendingBookingAction } from "@/actions/bookings";
@@ -21,6 +21,7 @@ import {
 import {
   getCycleProgress,
   getVipLevel,
+  vipLevelLabelFr,
 } from "@/lib/loyalty/vip";
 import {
   canClientCancelBooking,
@@ -146,40 +147,28 @@ export function DashboardLive({
     });
   }
 
+  const vipLabel = vipLevelLabelFr[vipLevel];
+
   return (
-    <div className="flex flex-col gap-6">
-      <section className="relative overflow-hidden rounded-3xl border border-amber-300/20 bg-linear-to-br from-zinc-950 via-zinc-900 to-black p-5 shadow-xl shadow-black/40">
-        <div
-          aria-hidden
-          className="premium-ambient pointer-events-none absolute -right-10 -top-10 size-44 rounded-full bg-amber-400/15 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-amber-100/60 to-transparent"
-        />
-        <div className="relative space-y-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/80">
-            Espace réservé aux membres ShopTonDrone Privé
-          </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-white">
-            Bonjour {displayName}
-          </h2>
-          <p className="text-sm leading-relaxed text-zinc-300">
-            Retrouvez votre réservation en cours, votre carte fidélité et vos
-            gratuits disponibles dans un espace réservé aux membres.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <span className="flex items-center gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-100">
-              <ShieldCheck className="size-4" aria-hidden />
-              Membre actif
-            </span>
-            <span className="flex items-center gap-2 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-100">
-              <Crown className="size-4" aria-hidden />
-              Accès prioritaire activé
-            </span>
-          </div>
-        </div>
-      </section>
+    <div className="flex min-w-0 flex-col gap-5">
+      <header className="space-y-0.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.38em] text-amber-200/75">
+          ShopTonDrone Privé
+        </p>
+        <h2 className="truncate text-xl font-semibold tracking-tight text-white">
+          {displayName}
+        </h2>
+        <p className="text-xs font-medium text-zinc-500">VIP {vipLabel}</p>
+      </header>
+
+      <LoyaltyCard
+        userId={userId}
+        vipLevel={vipLevel}
+        totalUnlocks={totalUnlocks}
+        cycle={cycle}
+        freeEarned={freeEarned}
+        freeAvailable={freeAvailable}
+      />
 
       <ReservationStatusCard
         booking={activeBooking}
@@ -201,25 +190,11 @@ export function DashboardLive({
         onConfirm={onCreatePhantomRequest}
       />
 
-      <LoyaltyCard
-        userId={userId}
-        displayName={displayName}
-        vipLevel={vipLevel}
-        totalUnlocks={totalUnlocks}
-        cycle={cycle}
-        freeEarned={freeEarned}
-        freeAvailable={freeAvailable}
+      <RecentHistory
+        items={loyalty.historyItems}
+        maxItems={5}
+        compact
       />
-      <RecentHistory items={loyalty.historyItems} />
-      <Link
-        href="/"
-        className={cn(
-          buttonVariants({ variant: "outline", size: "lg" }),
-          "h-11 w-full justify-center",
-        )}
-      >
-        Retour à l&apos;accueil
-      </Link>
     </div>
   );
 }
@@ -489,30 +464,21 @@ function ReservationStatusCard({
 }) {
   if (!booking) {
     return (
-      <section className="relative overflow-hidden rounded-3xl border border-dashed border-amber-300/20 bg-linear-to-br from-card/35 via-card/20 to-amber-950/10 p-5 shadow-lg shadow-black/15">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-amber-300/8 blur-3xl"
-        />
-        <div className="relative">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-amber-200/70">
-            Accès prioritaire
-          </p>
-          <p className="mt-2 text-base font-semibold text-foreground">
-            Aucune réservation active pour le moment.
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Réservez un nouveau créneau prioritaire quand vous êtes prêt.
-          </p>
-        </div>
+      <section className="relative overflow-hidden rounded-2xl border border-dashed border-amber-300/18 bg-linear-to-br from-card/30 via-card/15 to-amber-950/8 p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/65">
+          Réservation prioritaire
+        </p>
+        <p className="mt-2 text-sm font-semibold text-foreground">
+          Aucune réservation en cours
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Choisissez un créneau pour valider votre prochain déblocage.
+        </p>
         <Link
           href="/deblocage"
-          className={cn(
-            buttonVariants({ variant: "default", size: "lg" }),
-            "relative mt-4 h-12 w-full justify-center shadow-lg shadow-amber-950/20",
-          )}
+          className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-amber-400 text-sm font-semibold text-black shadow-lg shadow-amber-950/20 transition active:scale-[0.99] hover:bg-amber-300"
         >
-          Réserver une place
+          Réserver une place pour débloquer
         </Link>
       </section>
     );
@@ -532,27 +498,19 @@ function ReservationStatusCard({
           : "border-zinc-300/20 bg-zinc-400/10 text-zinc-200";
 
   return (
-    <section className="premium-float relative overflow-hidden rounded-3xl border border-amber-300/25 bg-linear-to-br from-amber-500/10 via-zinc-950 to-black p-5 shadow-2xl shadow-amber-950/30">
+    <section className="relative overflow-hidden rounded-2xl border border-amber-300/22 bg-linear-to-br from-amber-500/8 via-zinc-950 to-black p-4 shadow-lg shadow-amber-950/20">
       <div
         aria-hidden
-        className="premium-ambient pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-amber-300/20 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-amber-100/70 to-transparent"
-      />
-      <div
-        aria-hidden
-        className="premium-sheen pointer-events-none absolute inset-y-0 left-0 w-24 bg-linear-to-r from-transparent via-white/10 to-transparent"
+        className="pointer-events-none absolute -right-12 -top-12 size-36 rounded-full bg-amber-300/12 blur-2xl"
       />
 
-      <div className="relative space-y-5">
+      <div className="relative space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200/80">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-200/75">
               Réservation prioritaire
             </p>
-            <h3 className="mt-1 text-xl font-semibold tracking-tight text-white">
+            <h3 className="mt-1 truncate text-lg font-semibold tracking-tight text-white">
               {formatSlotDateTime(booking.starts_at)}
             </h3>
           </div>
@@ -568,21 +526,21 @@ function ReservationStatusCard({
           </span>
         </div>
 
-        <div className="grid grid-cols-[auto_1fr] gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-100">
-            <Clock3 className="size-5" aria-hidden />
+        <div className="grid grid-cols-[auto_1fr] gap-2.5 rounded-xl border border-white/8 bg-black/30 p-2.5">
+          <div className="flex size-9 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/10 text-amber-100">
+            <Clock3 className="size-4" aria-hidden />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white">
               {countdownLabel(booking.starts_at, nowMs)}
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+            <p className="mt-0.5 text-xs leading-snug text-zinc-400">
               {bookingMessage(booking, validatedUnlock)}
             </p>
           </div>
         </div>
 
-        <ol className="grid grid-cols-4 gap-2">
+        <ol className="grid grid-cols-4 gap-1.5">
           {bookingTimeline(booking, validatedUnlock).map((step) => (
             <li key={step.label} className="relative flex flex-col gap-2">
               <span
@@ -595,7 +553,7 @@ function ReservationStatusCard({
               />
               <span
                 className={cn(
-                  "text-[10px] font-medium leading-tight",
+                  "text-[9px] font-medium leading-tight",
                   step.active || step.done ? "text-amber-50" : "text-zinc-500",
                 )}
               >
@@ -605,13 +563,8 @@ function ReservationStatusCard({
           ))}
         </ol>
 
-        <p className="text-xs text-zinc-400">
-          Vous pouvez annuler votre réservation jusqu’à 20 minutes avant le
-          rendez-vous.
-        </p>
-
         {blockedAcceptedCancellation ? (
-          <p className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-100">
+          <p className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-2.5 py-2 text-[11px] font-medium text-rose-100">
             Annulation impossible à moins de 20 minutes du rendez-vous.
           </p>
         ) : null}
@@ -621,10 +574,7 @@ function ReservationStatusCard({
             type="button"
             disabled={cancelPending}
             onClick={onCancel}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-12 w-full justify-center border-destructive/40 bg-black/20 text-destructive transition duration-500 hover:bg-destructive/10 active:scale-[0.99]",
-            )}
+            className="h-10 w-full rounded-xl border border-destructive/35 bg-black/25 text-sm font-semibold text-destructive transition active:scale-[0.99] hover:bg-destructive/10 disabled:opacity-50"
           >
             Annuler ma réservation
           </button>

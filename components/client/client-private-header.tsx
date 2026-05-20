@@ -11,26 +11,33 @@ import {
 
 export function ClientPrivateHeader() {
   const pathname = usePathname();
+  const isCarteHome = pathname === "/dashboard";
   const title = getClientNavTitle(pathname);
   const subtitle = getClientNavSubtitle(pathname);
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-background/95 backdrop-blur-xl supports-backdrop-filter:bg-background/80">
-      <div className="relative mx-auto w-full max-w-lg px-5 pb-0 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-start justify-between gap-3 pb-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/90">
-              ShopTonDrone Privé
-            </p>
-            <h1 className="truncate text-xl font-semibold tracking-tight">
-              {title}
-            </h1>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {subtitle}
-            </p>
+      <div className="relative mx-auto w-full max-w-lg px-5 pb-0 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        {isCarteHome ? (
+          <div className="flex justify-end pb-2">
+            <ClientSignOutButton />
           </div>
-          <ClientSignOutButton />
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3 pb-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-amber-200/90">
+                ShopTonDrone Privé
+              </p>
+              <h1 className="truncate text-xl font-semibold tracking-tight">
+                {title}
+              </h1>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {subtitle}
+              </p>
+            </div>
+            <ClientSignOutButton />
+          </div>
+        )}
       </div>
       <ClientNavBar />
     </header>
