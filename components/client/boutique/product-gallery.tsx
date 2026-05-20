@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { X, ZoomIn } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,9 @@ const PAGE_GALLERY_HEIGHT =
 const PAGE_GALLERY_FRAME =
   "rounded-2xl border border-white/10 bg-zinc-950 sm:rounded-3xl";
 
+const FULLSCREEN_IMAGE_MAX_HEIGHT =
+  "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 5.5rem)";
+
 type ProductGalleryProps = {
   images: string[];
   productName: string;
@@ -24,22 +27,66 @@ type ProductGalleryProps = {
 
 type FullscreenViewerProps = {
   open: boolean;
-  src: string;
+  images: string[];
+  initialIndex: number;
   alt: string;
   onClose: () => void;
 };
 
+function scrollFullscreenToIndex(
+  scrollEl: HTMLDivElement | null,
+  index: number,
+  behavior: ScrollBehavior = "instant",
+) {
+  if (!scrollEl) return;
+  const child = scrollEl.children[index] as HTMLElement | undefined;
+  if (!child) return;
+  child.scrollIntoView({
+    behavior,
+    inline: "center",
+    block: "nearest",
+  });
+}
+
 function ProductImageFullscreenViewer({
   open,
-  src,
+  images,
+  initialIndex,
   alt,
   onClose,
 }: FullscreenViewerProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [index, setIndex] = useState(initialIndex);
+
+  const multi = images.length > 1;
+  const safeIndex = Math.min(
+    Math.max(0, index),
+    Math.max(0, images.length - 1),
+  );
+  const currentSrc = images[safeIndex] ?? images[0];
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setIndex(initialIndex);
+    const id = requestAnimationFrame(() => {
+      scrollFullscreenToIndex(scrollRef.current, initialIndex, "instant");
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open, initialIndex]);
+
+  const goTo = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(next, images.length - 1));
+      setIndex(clamped);
+      scrollFullscreenToIndex(scrollRef.current, clamped, "smooth");
+    },
+    [images.length],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -49,6 +96,9 @@ function ProductImageFullscreenViewer({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (!multi) return;
+      if (e.key === "ArrowLeft") goTo(safeIndex - 1);
+      if (e.key === "ArrowRight") goTo(safeIndex + 1);
     };
     window.addEventListener("keydown", onKey);
 
@@ -56,9 +106,27 @@ function ProductImageFullscreenViewer({
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, multi, safeIndex, goTo]);
 
-  if (!open || !mounted) return null;
+  function onFullscreenScroll() {
+    const el = scrollRef.current;
+    if (!el || images.length < 2) return;
+    const center = el.scrollLeft + el.clientWidth / 2;
+    let closest = 0;
+    let minDist = Infinity;
+    Array.from(el.children).forEach((child, i) => {
+      const node = child as HTMLElement;
+      const childCenter = node.offsetLeft + node.offsetWidth / 2;
+      const dist = Math.abs(childCenter - center);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i;
+      }
+    });
+    setIndex(closest);
+  }
+
+  if (!open || !mounted || !currentSrc) return null;
 
   return createPortal(
     <div
@@ -86,25 +154,105 @@ function ProductImageFullscreenViewer({
         <X className="size-6" strokeWidth={2.5} aria-hidden />
       </button>
 
+      {multi ? (
+        <>
+          <button
+            type="button"
+            disabled={safeIndex <= 0}
+            onClick={(e) => {
+              e.stopPropagation();
+              goTo(safeIndex - 1);
+            }}
+            className="fixed flex size-10 min-h-10 min-w-10 items-center justify-center rounded-full bg-zinc-900/80 text-white/90 ring-1 ring-white/15 transition active:scale-95 disabled:pointer-events-none disabled:opacity-25"
+            style={{
+              zIndex: VIEWER_Z_CLOSE,
+              left: "max(12px, env(safe-area-inset-left))",
+              top: "50%",
+              transform: "translateY(-50%)",
+            }}
+            aria-label="Photo précédente"
+          >
+            <ChevronLeft className="size-6" aria-hidden />
+          </button>
+          <button
+            type="button"
+            disabled={safeIndex >= images.length - 1}
+            onClick={(e) => {
+              e.stopPropagation();
+              goTo(safeIndex + 1);
+            }}
+            className="fixed flex size-10 min-h-10 min-w-10 items-center justify-center rounded-full bg-zinc-900/80 text-white/90 ring-1 ring-white/15 transition active:scale-95 disabled:pointer-events-none disabled:opacity-25"
+            style={{
+              zIndex: VIEWER_Z_CLOSE,
+              right: "max(12px, env(safe-area-inset-right))",
+              top: "50%",
+              transform: "translateY(-50%)",
+            }}
+            aria-label="Photo suivante"
+          >
+            <ChevronRight className="size-6" aria-hidden />
+          </button>
+
+          <p
+            className="pointer-events-none fixed left-1/2 -translate-x-1/2 text-[11px] font-medium tabular-nums tracking-wide text-white/45"
+            style={{
+              zIndex: VIEWER_Z_CLOSE,
+              bottom: "calc(env(safe-area-inset-bottom) + 14px)",
+            }}
+            aria-live="polite"
+          >
+            {safeIndex + 1}/{images.length}
+          </p>
+        </>
+      ) : null}
+
       <div
-        className="flex min-h-0 flex-1 items-center justify-center px-4"
+        className="flex min-h-0 flex-1 flex-col"
         style={{
           paddingTop: "calc(env(safe-area-inset-top) + 4.5rem)",
           paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
         }}
         onClick={onClose}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={alt}
-          className="max-h-full max-w-full object-contain"
-          style={{
-            maxHeight:
-              "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 5.5rem)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
+        {multi ? (
+          <div
+            ref={scrollRef}
+            onScroll={onFullscreenScroll}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-full min-h-0 w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
+          >
+            {images.map((src, i) => (
+              <div
+                key={src}
+                className="flex h-full w-full shrink-0 snap-center snap-always items-center justify-center px-4"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`${alt} — photo ${i + 1}`}
+                  className="max-h-full max-w-full object-contain"
+                  style={{ maxHeight: FULLSCREEN_IMAGE_MAX_HEIGHT }}
+                  draggable={false}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="flex min-h-0 flex-1 items-center justify-center px-4"
+            onClick={onClose}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentSrc}
+              alt={alt}
+              className="max-h-full max-w-full object-contain"
+              style={{ maxHeight: FULLSCREEN_IMAGE_MAX_HEIGHT }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
     </div>,
     document.body,
@@ -165,8 +313,6 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
     );
   }
 
-  const activeSrc = images[activeIndex] ?? images[0]!;
-
   return (
     <>
       <div className="relative min-w-0">
@@ -226,7 +372,8 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
 
       <ProductImageFullscreenViewer
         open={zoomOpen}
-        src={activeSrc}
+        images={images}
+        initialIndex={activeIndex}
         alt={productName}
         onClose={closeZoom}
       />
