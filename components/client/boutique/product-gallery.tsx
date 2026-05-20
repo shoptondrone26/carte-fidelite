@@ -1,35 +1,54 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, ZoomIn } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-/** Hauteur galerie sur la page produit (le zoom reste plein écran). */
+/** Au-dessus header (z-40), nav (z-50), panier/drawers (z-200). */
+const VIEWER_Z_OVERLAY = 9998;
+const VIEWER_Z_CLOSE = 10000;
+
 const PAGE_GALLERY_HEIGHT =
   "h-[min(38dvh,280px)] sm:h-[min(42dvh,320px)] lg:h-[min(44dvh,360px)]";
+
+const PAGE_GALLERY_FRAME =
+  "rounded-2xl border border-white/10 bg-zinc-950 sm:rounded-3xl";
 
 type ProductGalleryProps = {
   images: string[];
   productName: string;
 };
 
-export function ProductGallery({ images, productName }: ProductGalleryProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [zoomOpen, setZoomOpen] = useState(false);
+type FullscreenViewerProps = {
+  open: boolean;
+  src: string;
+  alt: string;
+  onClose: () => void;
+};
 
-  const closeZoom = useCallback(() => setZoomOpen(false), []);
+function ProductImageFullscreenViewer({
+  open,
+  src,
+  alt,
+  onClose,
+}: FullscreenViewerProps) {
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!zoomOpen) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeZoom();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
 
@@ -37,7 +56,67 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [zoomOpen, closeZoom]);
+  }, [open, onClose]);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex flex-col bg-black animate-in fade-in duration-200"
+      style={{ zIndex: VIEWER_Z_OVERLAY }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo produit en plein écran"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="fixed flex size-11 min-h-11 min-w-11 items-center justify-center rounded-full bg-zinc-900/95 text-white shadow-lg ring-1 ring-white/20 transition active:scale-95"
+        style={{
+          zIndex: VIEWER_Z_CLOSE,
+          top: "calc(env(safe-area-inset-top) + 16px)",
+          right: 16,
+        }}
+        aria-label="Fermer"
+      >
+        <X className="size-6" strokeWidth={2.5} aria-hidden />
+      </button>
+
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center px-4"
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top) + 4.5rem)",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+        }}
+        onClick={onClose}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-full max-w-full object-contain"
+          style={{
+            maxHeight:
+              "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 5.5rem)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function ProductGallery({ images, productName }: ProductGalleryProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
+
+  const closeZoom = useCallback(() => setZoomOpen(false), []);
 
   const goTo = useCallback((index: number) => {
     const el = scrollRef.current;
@@ -74,13 +153,14 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
     return (
       <div
         className={cn(
-          "relative w-full overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-zinc-900 via-zinc-950 to-black sm:rounded-3xl",
+          "relative flex w-full items-center justify-center overflow-hidden",
+          PAGE_GALLERY_FRAME,
           PAGE_GALLERY_HEIGHT,
         )}
       >
-        <div className="flex h-full items-center justify-center text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-600">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-600">
           ShopTonDrone
-        </div>
+        </span>
       </div>
     );
   }
@@ -94,7 +174,8 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
           ref={scrollRef}
           onScroll={onScroll}
           className={cn(
-            "flex w-full snap-x snap-mandatory overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900 [-ms-overflow-style:none] [scrollbar-width:none] sm:rounded-3xl [&::-webkit-scrollbar]:hidden",
+            "flex w-full snap-x snap-mandatory overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            PAGE_GALLERY_FRAME,
             PAGE_GALLERY_HEIGHT,
             images.length === 1 && "snap-none",
           )}
@@ -104,7 +185,7 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
               key={src}
               type="button"
               onClick={() => setZoomOpen(true)}
-              className="relative h-full w-full shrink-0 snap-center snap-always"
+              className="relative flex h-full w-full shrink-0 snap-center snap-always items-center justify-center bg-zinc-950"
               aria-label={`${productName} — photo ${i + 1}, agrandir`}
             >
               <Image
@@ -112,11 +193,11 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
                 alt=""
                 fill
                 unoptimized
-                className="object-cover"
+                className="object-contain p-2"
                 sizes="(max-width: 768px) 100vw, 560px"
                 priority={i === 0}
               />
-              <span className="absolute bottom-3 right-3 flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white/90 backdrop-blur-sm">
+              <span className="absolute bottom-3 right-3 flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white/90 backdrop-blur-sm">
                 <ZoomIn className="size-4" aria-hidden />
               </span>
             </button>
@@ -143,45 +224,12 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
         ) : null}
       </div>
 
-      {zoomOpen ? (
-        <div
-          className="fixed inset-0 z-[400] flex flex-col bg-black/95 backdrop-blur-md animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Zoom photo produit"
-          onClick={closeZoom}
-        >
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-[410] h-[calc(env(safe-area-inset-top)+3.5rem)] bg-linear-to-b from-black/80 to-transparent"
-            aria-hidden
-          />
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeZoom();
-            }}
-            className="fixed right-4 z-[420] flex size-12 items-center justify-center rounded-full border-2 border-white/20 bg-black/75 text-white shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-sm transition hover:bg-black/90 active:scale-95"
-            style={{ top: "max(12px, env(safe-area-inset-top))" }}
-            aria-label="Fermer le zoom"
-          >
-            <X className="size-6" strokeWidth={2.5} aria-hidden />
-          </button>
-
-          <div
-            className="relative z-[405] m-auto flex min-h-0 w-full flex-1 items-center justify-center px-4 pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={activeSrc}
-              alt={productName}
-              className="max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] max-w-full object-contain"
-            />
-          </div>
-        </div>
-      ) : null}
+      <ProductImageFullscreenViewer
+        open={zoomOpen}
+        src={activeSrc}
+        alt={productName}
+        onClose={closeZoom}
+      />
     </>
   );
 }
