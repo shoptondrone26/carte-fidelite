@@ -21,8 +21,8 @@ import {
 } from "@/lib/boutique/payment";
 import type { ShopProduct } from "@/lib/boutique/types";
 import {
-  clientBottomSheetMaxHeightClass,
-  clientBottomSheetPanelClass,
+  clientCartDrawerFooterClass,
+  clientCartDrawerPanelClass,
 } from "@/lib/ui/safe-area";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +44,7 @@ export function ProductOrderSheet({
   const [delivery, setDelivery] = useState<ShopDeliveryMethod>("pickup");
   const [paymentMethod, setPaymentMethod] =
     useState<ShopPaymentMethod>("wire_transfer");
-  const [pscAmount, setPscAmount] = useState("");
+  const [paysafecardAmount, setPaysafecardAmount] = useState("");
   const [pending, start] = useTransition();
 
   const subtotalEur = product.price_eur;
@@ -52,7 +52,7 @@ export function ProductOrderSheet({
     subtotalEur,
     delivery,
     paymentMethod,
-    parsePscAmount(pscAmount),
+    parsePaysafecardAmount(paysafecardAmount),
   );
 
   useEffect(() => {
@@ -64,16 +64,16 @@ export function ProductOrderSheet({
     };
   }, [open]);
 
-  if (!open) return null;
-
-  const outOfStock = product.stock <= 0;
-
   useEffect(() => {
     if (delivery === "pickup") {
       setPaymentMethod("wire_transfer");
-      setPscAmount("");
+      setPaysafecardAmount("");
     }
   }, [delivery]);
+
+  if (!open) return null;
+
+  const outOfStock = product.stock <= 0;
 
   function submit() {
     start(async () => {
@@ -82,7 +82,7 @@ export function ProductOrderSheet({
         delivery,
         1,
         paymentMethod,
-        parsePscAmount(pscAmount),
+        parsePaysafecardAmount(paysafecardAmount),
       );
       if (res.ok) {
         toast.success("Demande envoyée");
@@ -104,16 +104,15 @@ export function ProductOrderSheet({
     >
       <div
         className={cn(
-          "mx-auto flex w-full max-w-lg flex-col rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 px-5 pt-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-300",
-          clientBottomSheetMaxHeightClass,
-          clientBottomSheetPanelClass,
+          "mx-auto flex w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 shadow-2xl animate-in slide-in-from-bottom-4 duration-300",
+          clientCartDrawerPanelClass,
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-white/20" />
+        <div className="mx-auto mb-3 mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20" />
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
+          <div className="mb-5 flex items-start justify-between gap-3 pt-1">
             <div>
               <p
                 id="product-order-title"
@@ -172,16 +171,13 @@ export function ProductOrderSheet({
             <ShopPaymentSelector
               subtotalEur={subtotalEur}
               paymentMethod={paymentMethod}
-              pscAmountEur={pscAmount}
+              paysafecardAmountEur={paysafecardAmount}
               onPaymentMethodChange={setPaymentMethod}
-              onPscAmountChange={setPscAmount}
+              onPaysafecardAmountChange={setPaysafecardAmount}
               disabled={pending}
             />
           ) : (
-            <PaymentFeeBreakdown
-              totals={paymentTotals}
-              className="mb-5"
-            />
+            <PaymentFeeBreakdown totals={paymentTotals} className="mb-5" />
           )}
 
           {hasActiveOrder ? (
@@ -189,7 +185,10 @@ export function ProductOrderSheet({
               Une commande est déjà en cours pour ce produit.
             </p>
           ) : null}
+        </div>
 
+        <footer className={clientCartDrawerFooterClass}>
+          <PaymentFeeBreakdown totals={paymentTotals} compact className="mb-3" />
           <button
             type="button"
             disabled={pending || outOfStock || hasActiveOrder}
@@ -201,13 +200,13 @@ export function ProductOrderSheet({
           >
             {outOfStock ? "Rupture de stock" : "Demander ce produit"}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );
 }
 
-function parsePscAmount(value: string): number {
+function parsePaysafecardAmount(value: string): number {
   const n = Number.parseFloat(value.replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 }

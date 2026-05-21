@@ -1,4 +1,4 @@
-/** Frais Paysafecard : 5 % sur la part PSC (total ou montant mixte). */
+/** Frais Paysafecard : 5 % sur la part Paysafecard (total ou montant mixte). */
 export const PSC_FEE_RATE = 0.05;
 
 export type ShopPaymentMethod = "wire_transfer" | "paysafecard" | "mixed";
@@ -22,14 +22,14 @@ export function roundMoneyEur(value: number): number {
 }
 
 /**
- * Calcule les frais PSC pour une commande Chronopost.
+ * Calcule les frais Paysafecard pour une commande Chronopost.
  * Remise en main propre : aucun frais, virement implicite.
  */
 export function computeShopPaymentTotals(
   subtotalEur: number,
   deliveryMethod: "pickup" | "chronopost_24h",
   paymentMethod: ShopPaymentMethod,
-  rawPscAmountEur?: number,
+  rawPaysafecardAmountEur?: number,
 ): ShopPaymentTotals {
   const subtotal = roundMoneyEur(Math.max(0, subtotalEur));
 
@@ -43,9 +43,7 @@ export function computeShopPaymentTotals(
     };
   }
 
-  const pscInput = roundMoneyEur(Math.max(0, rawPscAmountEur ?? 0));
-
-  if (paymentMethod === "wire_transfer" || pscInput <= 0) {
+  if (paymentMethod === "wire_transfer") {
     return {
       subtotalEur: subtotal,
       paymentMethod: "wire_transfer",
@@ -55,7 +53,7 @@ export function computeShopPaymentTotals(
     };
   }
 
-  if (paymentMethod === "paysafecard" || pscInput >= subtotal) {
+  if (paymentMethod === "paysafecard") {
     const fee = roundMoneyEur(subtotal * PSC_FEE_RATE);
     return {
       subtotalEur: subtotal,
@@ -66,12 +64,26 @@ export function computeShopPaymentTotals(
     };
   }
 
-  const pscAmount = roundMoneyEur(Math.min(pscInput, subtotal));
-  const fee = roundMoneyEur(pscAmount * PSC_FEE_RATE);
+  const paysafecardAmount = roundMoneyEur(
+    Math.max(0, rawPaysafecardAmountEur ?? 0),
+  );
+
+  if (paysafecardAmount <= 0) {
+    return {
+      subtotalEur: subtotal,
+      paymentMethod: "wire_transfer",
+      pscAmountEur: 0,
+      paymentFeeEur: 0,
+      finalTotalEur: subtotal,
+    };
+  }
+
+  const capped = roundMoneyEur(Math.min(paysafecardAmount, subtotal));
+  const fee = roundMoneyEur(capped * PSC_FEE_RATE);
   return {
     subtotalEur: subtotal,
     paymentMethod: "mixed",
-    pscAmountEur: pscAmount,
+    pscAmountEur: capped,
     paymentFeeEur: fee,
     finalTotalEur: roundMoneyEur(subtotal + fee),
   };

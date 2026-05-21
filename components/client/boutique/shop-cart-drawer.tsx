@@ -20,11 +20,13 @@ import {
 } from "@/lib/boutique/orders";
 import {
   computeShopPaymentTotals,
+  formatPscFeePercentLabel,
   type ShopPaymentMethod,
+  type ShopPaymentTotals,
 } from "@/lib/boutique/payment";
 import {
-  clientBottomSheetMaxHeightClass,
-  clientBottomSheetPanelClass,
+  clientCartDrawerFooterClass,
+  clientCartDrawerPanelClass,
 } from "@/lib/ui/safe-area";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -51,7 +53,7 @@ export function ShopCartDrawer({
   const [delivery, setDelivery] = useState<ShopDeliveryMethod>("pickup");
   const [paymentMethod, setPaymentMethod] =
     useState<ShopPaymentMethod>("wire_transfer");
-  const [pscAmount, setPscAmount] = useState("");
+  const [paysafecardAmount, setPaysafecardAmount] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -63,15 +65,15 @@ export function ShopCartDrawer({
         subtotalEur,
         delivery,
         paymentMethod,
-        parsePscAmount(pscAmount),
+        parsePaysafecardAmount(paysafecardAmount),
       ),
-    [subtotalEur, delivery, paymentMethod, pscAmount],
+    [subtotalEur, delivery, paymentMethod, paysafecardAmount],
   );
 
   useEffect(() => {
     if (delivery === "pickup") {
       setPaymentMethod("wire_transfer");
-      setPscAmount("");
+      setPaysafecardAmount("");
     }
   }, [delivery]);
 
@@ -105,9 +107,9 @@ export function ShopCartDrawer({
     if (
       delivery === "chronopost_24h" &&
       paymentMethod === "mixed" &&
-      parsePscAmount(pscAmount) <= 0
+      parsePaysafecardAmount(paysafecardAmount) <= 0
     ) {
-      toast.error("Montant PSC requis", {
+      toast.error("Montant Paysafecard requis", {
         description: "Indiquez le montant payé en Paysafecard.",
       });
       return;
@@ -116,10 +118,11 @@ export function ShopCartDrawer({
     if (
       delivery === "chronopost_24h" &&
       paymentMethod === "mixed" &&
-      parsePscAmount(pscAmount) >= subtotalEur
+      parsePaysafecardAmount(paysafecardAmount) >= subtotalEur
     ) {
-      toast.error("Montant PSC invalide", {
-        description: "Le montant PSC doit être inférieur au sous-total produits.",
+      toast.error("Montant Paysafecard invalide", {
+        description:
+          "Le montant Paysafecard doit être inférieur au sous-total produits.",
       });
       return;
     }
@@ -133,7 +136,7 @@ export function ShopCartDrawer({
         })),
         delivery,
         paymentMethod,
-        parsePscAmount(pscAmount),
+        parsePaysafecardAmount(paysafecardAmount),
       );
 
       if (!res.ok) {
@@ -148,7 +151,7 @@ export function ShopCartDrawer({
       clearCart();
       setDelivery("pickup");
       setPaymentMethod("wire_transfer");
-      setPscAmount("");
+      setPaysafecardAmount("");
       onOpenChange(false);
 
       router.refresh();
@@ -167,15 +170,14 @@ export function ShopCartDrawer({
     >
       <div
         className={cn(
-          "mx-auto flex w-full max-w-lg flex-col rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 shadow-2xl animate-in slide-in-from-bottom-4 duration-300",
-          clientBottomSheetMaxHeightClass,
-          clientBottomSheetPanelClass,
+          "mx-auto flex w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] border border-white/10 bg-zinc-950/95 shadow-2xl animate-in slide-in-from-bottom-4 duration-300",
+          clientCartDrawerPanelClass,
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-white/20" />
+        <div className="mx-auto mb-3 mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20" />
 
-        <div className="flex shrink-0 items-center justify-between gap-3 px-1 pb-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3">
           <div>
             <p
               id="shop-cart-title"
@@ -198,137 +200,140 @@ export function ShopCartDrawer({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
           {items.length === 0 ? (
             <p className="py-12 text-center text-sm text-zinc-500">
               Votre panier est vide.
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {items.map((item) => (
-                <li
-                  key={item.productId}
-                  className="flex gap-3 rounded-xl border border-white/10 bg-black/30 p-2.5"
-                >
-                  <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-zinc-900">
-                    {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt=""
-                        fill
-                        unoptimized
-                        className="object-cover"
-                        sizes="64px"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <p className="line-clamp-2 text-sm font-medium text-white">
-                      {item.name}
-                    </p>
-                    <p className="text-xs tabular-nums text-amber-100/90">
-                      {formatShopPrice(item.priceEur)} / unité
-                      {item.quantity > 1
-                        ? ` · ${formatShopPrice(item.priceEur * item.quantity)}`
-                        : ""}
-                    </p>
-                    <p className="text-[10px] text-zinc-500">
-                      Stock : {item.stockMax}
-                    </p>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-0.5">
+            <div className="flex flex-col gap-4 pb-2">
+              <ul className="flex flex-col gap-3">
+                {items.map((item) => (
+                  <li
+                    key={item.productId}
+                    className="flex gap-3 rounded-xl border border-white/10 bg-black/30 p-2.5"
+                  >
+                    <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-zinc-900">
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt=""
+                          fill
+                          unoptimized
+                          className="object-cover"
+                          sizes="64px"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <p className="line-clamp-2 text-sm font-medium text-white">
+                        {item.name}
+                      </p>
+                      <p className="text-xs tabular-nums text-amber-100/90">
+                        {formatShopPrice(item.priceEur)} / unité
+                        {item.quantity > 1
+                          ? ` · ${formatShopPrice(item.priceEur * item.quantity)}`
+                          : ""}
+                      </p>
+                      <p className="text-[10px] text-zinc-500">
+                        Stock : {item.stockMax}
+                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-0.5">
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              setQuantity(item.productId, item.quantity - 1)
+                            }
+                            className="flex size-7 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+                            aria-label="Diminuer"
+                          >
+                            <Minus className="size-3.5" />
+                          </button>
+                          <span className="min-w-6 text-center text-sm font-semibold tabular-nums text-white">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={
+                              pending || item.quantity >= item.stockMax
+                            }
+                            onClick={() =>
+                              setQuantity(item.productId, item.quantity + 1)
+                            }
+                            className="flex size-7 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+                            aria-label="Augmenter"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
                         <button
                           type="button"
                           disabled={pending}
-                          onClick={() =>
-                            setQuantity(item.productId, item.quantity - 1)
-                          }
-                          className="flex size-7 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 disabled:opacity-40"
-                          aria-label="Diminuer"
+                          onClick={() => removeProduct(item.productId)}
+                          className="flex size-8 items-center justify-center rounded-full text-rose-300/90 hover:bg-rose-500/10"
+                          aria-label="Retirer"
                         >
-                          <Minus className="size-3.5" />
-                        </button>
-                        <span className="min-w-6 text-center text-sm font-semibold tabular-nums text-white">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={
-                            pending || item.quantity >= item.stockMax
-                          }
-                          onClick={() =>
-                            setQuantity(item.productId, item.quantity + 1)
-                          }
-                          className="flex size-7 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 disabled:opacity-40"
-                          aria-label="Augmenter"
-                        >
-                          <Plus className="size-3.5" />
+                          <Trash2 className="size-4" />
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => removeProduct(item.productId)}
-                        className="flex size-8 items-center justify-center rounded-full text-rose-300/90 hover:bg-rose-500/10"
-                        aria-label="Retirer"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-500">
+                  Livraison
+                </p>
+                {(["pickup", "chronopost_24h"] as const).map((method) => (
+                  <label
+                    key={method}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition duration-200",
+                      delivery === method
+                        ? "border-amber-300/40 bg-amber-300/10"
+                        : "border-white/10 bg-black/20",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="cart-delivery"
+                      checked={delivery === method}
+                      onChange={() => setDelivery(method)}
+                      className="size-4 accent-amber-400"
+                    />
+                    <span className="text-sm text-white">
+                      {shopDeliveryLabelFr[method]}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {delivery === "chronopost_24h" ? (
+                <ShopPaymentSelector
+                  subtotalEur={subtotalEur}
+                  paymentMethod={paymentMethod}
+                  paysafecardAmountEur={paysafecardAmount}
+                  onPaymentMethodChange={setPaymentMethod}
+                  onPaysafecardAmountChange={setPaysafecardAmount}
+                  disabled={pending}
+                />
+              ) : (
+                <PaymentFeeBreakdown totals={paymentTotals} />
+              )}
+
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                Une commande groupée sera créée. Paiement manuel sur Snapchat.
+              </p>
+            </div>
           )}
         </div>
 
         {items.length > 0 ? (
-          <div className="mt-4 shrink-0 space-y-4 border-t border-white/8 pt-4 px-1">
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-zinc-500">
-                Livraison
-              </p>
-              {(["pickup", "chronopost_24h"] as const).map((method) => (
-                <label
-                  key={method}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition duration-200",
-                    delivery === method
-                      ? "border-amber-300/40 bg-amber-300/10"
-                      : "border-white/10 bg-black/20",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="cart-delivery"
-                    checked={delivery === method}
-                    onChange={() => setDelivery(method)}
-                    className="size-4 accent-amber-400"
-                  />
-                  <span className="text-sm text-white">
-                    {shopDeliveryLabelFr[method]}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {delivery === "chronopost_24h" ? (
-              <ShopPaymentSelector
-                subtotalEur={subtotalEur}
-                paymentMethod={paymentMethod}
-                pscAmountEur={pscAmount}
-                onPaymentMethodChange={setPaymentMethod}
-                onPscAmountChange={setPscAmount}
-                disabled={pending}
-              />
-            ) : (
-              <PaymentFeeBreakdown totals={paymentTotals} />
-            )}
-
-            <p className="text-[11px] leading-relaxed text-zinc-500">
-              Une commande groupée sera créée. Paiement manuel sur Snapchat.
-            </p>
-
+          <footer className={clientCartDrawerFooterClass}>
+            <CartDrawerFooterTotals totals={paymentTotals} />
             <button
               type="button"
               disabled={pending}
@@ -340,23 +345,52 @@ export function ShopCartDrawer({
             >
               {pending ? "Envoi…" : "Envoyer ma demande"}
             </button>
-
             <button
               type="button"
               disabled={pending}
               onClick={clearCart}
-              className="w-full py-1 text-center text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+              className="mt-2 w-full py-1 text-center text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
             >
               Vider le panier
             </button>
-          </div>
+          </footer>
         ) : null}
       </div>
     </div>
   );
 }
 
-function parsePscAmount(value: string): number {
+function parsePaysafecardAmount(value: string): number {
   const n = Number.parseFloat(value.replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Récapitulatif compact toujours visible au-dessus du bouton d’envoi. */
+function CartDrawerFooterTotals({ totals }: { totals: ShopPaymentTotals }) {
+  const feePercent = formatPscFeePercentLabel();
+
+  return (
+    <div className="mb-3 space-y-1.5">
+      {totals.paymentFeeEur > 0 ? (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-amber-500/12 px-2.5 py-2">
+          <span className="text-xs font-medium text-amber-50">
+            {totals.paymentMethod === "mixed"
+              ? `Frais Paysafecard ${feePercent} sur ${formatShopPrice(totals.pscAmountEur)}`
+              : `Frais Paysafecard ${feePercent}`}
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-amber-100">
+            +{formatShopPrice(totals.paymentFeeEur)}
+          </span>
+        </div>
+      ) : totals.paymentMethod === "wire_transfer" ? (
+        <p className="text-[11px] text-emerald-200/70">0% de frais</p>
+      ) : null}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-semibold text-amber-50">Total à payer</span>
+        <span className="text-lg font-semibold tabular-nums text-amber-50">
+          {formatShopPrice(totals.finalTotalEur)}
+        </span>
+      </div>
+    </div>
+  );
 }

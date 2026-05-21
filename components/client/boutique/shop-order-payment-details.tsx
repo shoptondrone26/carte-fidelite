@@ -50,7 +50,7 @@ export function ShopOrderPaymentDetails({
 
       {order.payment_method === "mixed" && order.psc_amount_eur > 0 ? (
         <div className="flex justify-between gap-2 text-zinc-400">
-          <span>Montant PSC</span>
+          <span>Montant Paysafecard</span>
           <span className="tabular-nums">
             {formatShopPrice(order.psc_amount_eur)}
           </span>
@@ -59,7 +59,12 @@ export function ShopOrderPaymentDetails({
 
       {order.payment_fee_eur > 0 ? (
         <div className="flex justify-between gap-2 text-amber-100/85">
-          <span>Frais Paysafecard</span>
+          <span>
+            Frais Paysafecard
+            {order.payment_method === "mixed"
+              ? ` sur ${formatShopPrice(order.psc_amount_eur)}`
+              : " 5%"}
+          </span>
           <span className="tabular-nums">
             +{formatShopPrice(order.payment_fee_eur)}
           </span>

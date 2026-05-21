@@ -12,26 +12,28 @@ import { cn } from "@/lib/utils";
 type ShopPaymentSelectorProps = {
   subtotalEur: number;
   paymentMethod: ShopPaymentMethod;
-  pscAmountEur: string;
+  paysafecardAmountEur: string;
   onPaymentMethodChange: (method: ShopPaymentMethod) => void;
-  onPscAmountChange: (value: string) => void;
+  onPaysafecardAmountChange: (value: string) => void;
   disabled?: boolean;
 };
 
 export function ShopPaymentSelector({
   subtotalEur,
   paymentMethod,
-  pscAmountEur,
+  paysafecardAmountEur,
   onPaymentMethodChange,
-  onPscAmountChange,
+  onPaysafecardAmountChange,
   disabled = false,
 }: ShopPaymentSelectorProps) {
   const totals = computeShopPaymentTotals(
     subtotalEur,
     "chronopost_24h",
     paymentMethod,
-    parsePscInput(pscAmountEur),
+    parsePaysafecardInput(paysafecardAmountEur),
   );
+
+  const feePercent = formatPscFeePercentLabel();
 
   return (
     <div className="space-y-3 rounded-xl border border-amber-200/12 bg-linear-to-br from-amber-500/[0.04] to-black/40 p-3 animate-in fade-in duration-300">
@@ -48,11 +50,11 @@ export function ShopPaymentSelector({
             },
             {
               id: "paysafecard" as const,
-              hint: `+${formatPscFeePercentLabel()} sur le total`,
+              hint: `Frais Paysafecard ${feePercent} sur le total`,
             },
             {
               id: "mixed" as const,
-              hint: `Frais ${formatPscFeePercentLabel()} sur la part PSC`,
+              hint: `Frais ${feePercent} sur le montant Paysafecard`,
             },
           ] as const
         ).map((opt) => (
@@ -87,7 +89,7 @@ export function ShopPaymentSelector({
       {paymentMethod === "mixed" ? (
         <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
           <label className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-            Montant PSC (€)
+            Montant Paysafecard (€)
           </label>
           <input
             type="number"
@@ -96,13 +98,14 @@ export function ShopPaymentSelector({
             max={subtotalEur}
             step="0.01"
             disabled={disabled}
-            value={pscAmountEur}
-            onChange={(e) => onPscAmountChange(e.target.value)}
+            value={paysafecardAmountEur}
+            onChange={(e) => onPaysafecardAmountChange(e.target.value)}
             placeholder="Ex. 400"
             className="h-11 w-full rounded-xl border border-white/12 bg-black/40 px-3 text-sm tabular-nums text-white outline-none ring-amber-400/30 focus:ring-2"
           />
           <p className="text-[10px] text-zinc-500">
-            Maximum {formatShopPrice(subtotalEur)} (sous-total produits)
+            Maximum {formatShopPrice(subtotalEur)} en Paysafecard (sous-total
+            produits)
           </p>
         </div>
       ) : null}
@@ -115,14 +118,21 @@ export function ShopPaymentSelector({
 export function PaymentFeeBreakdown({
   totals,
   className,
+  compact,
 }: {
   totals: ReturnType<typeof computeShopPaymentTotals>;
   className?: string;
+  compact?: boolean;
 }) {
+  const feePercent = formatPscFeePercentLabel();
+  const showWireNoFee =
+    totals.paymentMethod === "wire_transfer" && totals.paymentFeeEur === 0;
+
   return (
     <div
       className={cn(
-        "space-y-1.5 border-t border-white/8 pt-2.5 text-sm transition-all duration-300",
+        "space-y-2 text-sm transition-all duration-300",
+        !compact && "border-t border-white/8 pt-2.5",
         className,
       )}
     >
@@ -130,22 +140,23 @@ export function PaymentFeeBreakdown({
         <span>Sous-total produits</span>
         <span className="tabular-nums">{formatShopPrice(totals.subtotalEur)}</span>
       </div>
+
       {totals.paymentFeeEur > 0 ? (
-        <div className="flex justify-between gap-2 text-amber-100/90">
-          <span>
-            Frais Paysafecard
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-amber-500/12 px-2.5 py-2">
+          <span className="text-sm font-medium leading-snug text-amber-50">
             {totals.paymentMethod === "mixed"
-              ? ` (${formatShopPrice(totals.pscAmountEur)} PSC)`
-              : ""}
+              ? `Frais Paysafecard ${feePercent} sur ${formatShopPrice(totals.pscAmountEur)}`
+              : `Frais Paysafecard ${feePercent}`}
           </span>
-          <span className="tabular-nums">
+          <span className="shrink-0 text-base font-semibold tabular-nums text-amber-100">
             +{formatShopPrice(totals.paymentFeeEur)}
           </span>
         </div>
-      ) : totals.paymentMethod === "wire_transfer" ? (
+      ) : showWireNoFee ? (
         <p className="text-[11px] text-emerald-200/70">0% de frais</p>
       ) : null}
-      <div className="flex justify-between gap-2 pt-1 font-semibold text-amber-50">
+
+      <div className="flex justify-between gap-2 pt-0.5 font-semibold text-amber-50">
         <span>Total à payer</span>
         <span className="tabular-nums text-base">
           {formatShopPrice(totals.finalTotalEur)}
@@ -155,7 +166,7 @@ export function PaymentFeeBreakdown({
   );
 }
 
-function parsePscInput(value: string): number {
+function parsePaysafecardInput(value: string): number {
   const n = Number.parseFloat(value.replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 }

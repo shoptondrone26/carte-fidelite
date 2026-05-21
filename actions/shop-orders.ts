@@ -173,10 +173,10 @@ export async function submitShopCartOrdersAction(
     delivery.data === "chronopost_24h" &&
     pscParsed.data <= 0
   ) {
-    return {
-      ok: false,
-      error: "Indiquez le montant payé en Paysafecard pour le mode mixte.",
-    };
+      return {
+        ok: false,
+        error: "Indiquez le montant Paysafecard pour le mode mixte.",
+      };
   }
 
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
