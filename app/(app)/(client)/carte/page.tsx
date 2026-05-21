@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AdvantagesLive } from "@/components/client/advantages-live";
+import { ClientNotificationActivationPrompt } from "@/components/notifications/client-notification-activation-prompt";
+import { isClientPushSubscribed } from "@/lib/push/client-subscription";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,7 +25,7 @@ export default async function CartePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("total_unlocks")
+    .select("total_unlocks, push_enabled, onesignal_subscription_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -74,6 +76,10 @@ export default async function CartePage() {
           débloquées dans ShopTonDrone Privé.
         </p>
       </header>
+
+      <ClientNotificationActivationPrompt
+        initialSubscribed={isClientPushSubscribed(profile ?? undefined)}
+      />
 
       <AdvantagesLive userId={user.id} initial={initial} />
     </main>

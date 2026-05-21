@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardLive } from "@/components/client/dashboard-live";
-import { PushSettingsPanel } from "@/components/notifications/push-settings-panel";
+import { ClientNotificationActivationPrompt } from "@/components/notifications/client-notification-activation-prompt";
+import { isClientPushSubscribed } from "@/lib/push/client-subscription";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { fetchClientPhantomRequest } from "@/lib/phantom/requests";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
@@ -30,7 +31,9 @@ export default async function DashboardPage() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, phone, created_at, total_unlocks, push_enabled")
+    .select(
+      "id, email, full_name, phone, created_at, total_unlocks, push_enabled, onesignal_subscription_id",
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -116,8 +119,8 @@ export default async function DashboardPage() {
 
       {profile ? (
         <>
-          <PushSettingsPanel
-            initialEnabled={profile.push_enabled !== false}
+          <ClientNotificationActivationPrompt
+            initialSubscribed={isClientPushSubscribed(profile)}
           />
           <DashboardLive
             userId={user.id}
