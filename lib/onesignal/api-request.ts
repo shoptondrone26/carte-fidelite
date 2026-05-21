@@ -166,13 +166,16 @@ export async function postOneSignalNotification(input: {
     ? ONESIGNAL_LEGACY_NOTIFICATIONS_URL
     : ONESIGNAL_V2_NOTIFICATIONS_URL;
 
+  // OneSignal refuse `url` + `web_url`/`app_url` ensemble.
+  // → un seul champ de redirection : `web_url` (Web push / PWA).
+  // `data.url` reste un payload data (pas un champ de redirection) : utile
+  // côté service worker si on veut customiser le routage plus tard.
   const body = isLegacy
     ? {
         app_id: appId,
         include_external_user_ids: [input.userId],
         headings: { fr: input.title, en: input.title },
         contents: { fr: input.body, en: input.body },
-        url: launchUrl,
         web_url: launchUrl,
         data: { url: launchUrl },
       }
@@ -182,7 +185,6 @@ export async function postOneSignalNotification(input: {
         include_aliases: { external_id: [input.userId] },
         headings: { fr: input.title, en: input.title },
         contents: { fr: input.body, en: input.body },
-        url: launchUrl,
         web_url: launchUrl,
         data: { url: launchUrl },
       };
