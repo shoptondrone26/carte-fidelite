@@ -174,6 +174,7 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
                     return r;
                   },
                   { maxAttempts: 60, delayMs: 300 },
+                  OneSignal,
                 );
                 pushDebugLog("poll subscription id final", polled);
                 if (!polled) {

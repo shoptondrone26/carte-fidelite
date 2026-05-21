@@ -8,12 +8,8 @@ import {
   sendTestPushToAllAdminsAction,
   sendTestPushToSelfAction,
 } from "@/actions/push-test";
-import {
-  setPushEnabledAction,
-  syncPushSubscriptionAction,
-} from "@/actions/push-preferences";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
-import { pollAndSyncPushSubscription } from "@/lib/onesignal/subscription-sync";
+import { activateClientPushNotifications } from "@/lib/onesignal/activate-client-push";
 import { cn } from "@/lib/utils";
 
 type AdminPushSettingsProps = {
@@ -38,34 +34,12 @@ export function AdminPushSettings({
       return;
     }
     start(async () => {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          window.OneSignalDeferred = window.OneSignalDeferred ?? [];
-          window.OneSignalDeferred.push(async (OneSignal) => {
-            try {
-              await OneSignal.Notifications.requestPermission();
-              await OneSignal.User.PushSubscription.optIn();
-              const subId = OneSignal.User.PushSubscription.id;
-              if (subId) {
-                await syncPushSubscriptionAction(subId);
-              } else {
-                await pollAndSyncPushSubscription(syncPushSubscriptionAction);
-              }
-              resolve();
-            } catch (e) {
-              reject(e);
-            }
-          });
-        });
-        const res = await setPushEnabledAction(true);
-        if (res.ok) {
-          setEnabled(true);
-          toast.success("Notifications activées sur cet appareil");
-        } else {
-          toast.error(res.error);
-        }
-      } catch {
-        toast.error("Permission refusée ou indisponible");
+      const result = await activateClientPushNotifications();
+      if (result.ok) {
+        setEnabled(true);
+        toast.success("Notifications activées sur cet appareil");
+      } else {
+        toast.error(result.error);
       }
     });
   };

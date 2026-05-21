@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, BellRing, CheckCircle2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,17 +24,13 @@ export function ClientNotificationActivationPrompt({
   className,
 }: ClientNotificationActivationPromptProps) {
   const [subscribed, setSubscribed] = useState(initialSubscribed);
-  const [pending, start] = useTransition();
+  const [isActivating, setIsActivating] = useState(false);
   const [iosNeedsPwa, setIosNeedsPwa] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const didTrySyncRef = useRef(false);
 
   const sdkReady = isOneSignalClientEnabled();
-
-  const trySyncExisting = useCallback(async () => {
-    if (subscribed || !sdkReady) return;
-    const synced = await syncExistingClientPushSubscription();
-    if (synced) setSubscribed(true);
-  }, [subscribed, sdkReady]);
 
   useEffect(() => {
     setSubscribed(initialSubscribed);
@@ -45,17 +41,12 @@ export function ClientNotificationActivationPrompt({
   }, []);
 
   useEffect(() => {
-    void trySyncExisting();
-  }, [trySyncExisting]);
-
-  useEffect(() => {
-    if (subscribed) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void trySyncExisting();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [subscribed, trySyncExisting]);
+    if (subscribed || !sdkReady || didTrySyncRef.current) return;
+    didTrySyncRef.current = true;
+    void syncExistingClientPushSubscription().then((synced) => {
+      if (synced) setSubscribed(true);
+    });
+  }, [subscribed, sdkReady]);
 
   if (subscribed && !justActivated) {
     return null;
@@ -92,7 +83,9 @@ export function ClientNotificationActivationPrompt({
     return null;
   }
 
-  const onActivate = () => {
+  const onActivate = async () => {
+    if (isActivating) return;
+
     if (iosNeedsPwa) {
       toast.message("Installation requise", {
         description:
@@ -102,7 +95,10 @@ export function ClientNotificationActivationPrompt({
       return;
     }
 
-    start(async () => {
+    setIsActivating(true);
+    setLastError(null);
+
+    try {
       const result = await activateClientPushNotifications();
       if (result.ok) {
         setSubscribed(true);
@@ -117,6 +113,7 @@ export function ClientNotificationActivationPrompt({
 
       if (result.needsPwaInstall) {
         setIosNeedsPwa(true);
+        setLastError(result.error);
         toast.message("Ajoutez l’application à l’écran d’accueil", {
           description: result.error,
           duration: 8000,
@@ -124,8 +121,15 @@ export function ClientNotificationActivationPrompt({
         return;
       }
 
+      setLastError(result.error);
       toast.error("Activation impossible", { description: result.error });
-    });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError(msg);
+      toast.error("Activation impossible", { description: msg });
+    } finally {
+      setIsActivating(false);
+    }
   };
 
   return (
@@ -168,10 +172,16 @@ export function ClientNotificationActivationPrompt({
         </div>
       ) : null}
 
+      {lastError ? (
+        <p className="relative mt-3 rounded-lg border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+          {lastError}
+        </p>
+      ) : null}
+
       <button
         type="button"
-        disabled={pending}
-        onClick={onActivate}
+        disabled={isActivating}
+        onClick={() => void onActivate()}
         className={cn(
           "relative mt-4 flex w-full min-h-12 items-center justify-center gap-2 rounded-full",
           "bg-amber-400 px-4 py-3 text-sm font-bold text-zinc-950",
@@ -180,7 +190,7 @@ export function ClientNotificationActivationPrompt({
         )}
       >
         <Bell className="size-4" aria-hidden />
-        {pending ? "Activation…" : "Activer les notifications"}
+        {isActivating ? "Activation…" : "Activer les notifications"}
       </button>
     </section>
   );

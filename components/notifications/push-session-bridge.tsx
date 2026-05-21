@@ -42,11 +42,15 @@ export function PushSessionBridge() {
           await OneSignal.login(userId);
           linkedUserRef.current = userId;
         }
-        const polled = await pollAndSyncPushSubscription(async (id) => {
-          const r = await syncPushSubscriptionAction(id);
-          pushDebugLog("sync Supabase (poll bridge)", r);
-          return r;
-        });
+        const polled = await pollAndSyncPushSubscription(
+          async (id) => {
+            const r = await syncPushSubscriptionAction(id);
+            pushDebugLog("sync Supabase (poll bridge)", r);
+            return r;
+          },
+          undefined,
+          OneSignal,
+        );
         pushDebugLog("poll subscription id (bridge)", polled);
       });
     }
@@ -55,7 +59,7 @@ export function PushSessionBridge() {
       if (document.visibilityState !== "visible") return;
       void supabase.auth.getUser().then(({ data }) => {
         if (data.user) {
-          void runOneSignalTask(async () => {
+          void runOneSignalTask(async (oneSignal) => {
             await pollAndSyncPushSubscription(
               async (id) => {
                 const r = await syncPushSubscriptionAction(id);
@@ -63,6 +67,7 @@ export function PushSessionBridge() {
                 return r;
               },
               { maxAttempts: 15, delayMs: 200 },
+              oneSignal,
             );
           });
         }
