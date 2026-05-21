@@ -1,7 +1,10 @@
 import {
   getOneSignalAppId,
+  getOneSignalNotificationHeaders,
   getSiteUrl,
   isOneSignalSendEnabled,
+  logOneSignalEnvDebug,
+  ONESIGNAL_NOTIFICATIONS_URL,
 } from "@/lib/onesignal/config";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -67,11 +70,13 @@ export async function sendDirectPushToUser(
   message: DirectPushMessage,
 ): Promise<DirectPushResult> {
   if (!isOneSignalSendEnabled()) {
+    logOneSignalEnvDebug("sendDirectPushToUser:disabled");
     return { ok: false, error: "onesignal_disabled" };
   }
 
-  const apiKey = process.env.ONESIGNAL_REST_API_KEY?.trim();
-  if (!apiKey) {
+  const headers = getOneSignalNotificationHeaders();
+  if (!headers) {
+    logOneSignalEnvDebug("sendDirectPushToUser:missing_key");
     return { ok: false, error: "missing_rest_api_key" };
   }
 
@@ -82,12 +87,11 @@ export async function sendDirectPushToUser(
   const appId = getOneSignalAppId();
   const url = resolveUrl(message.url);
 
-  const res = await fetch("https://api.onesignal.com/notifications", {
+  logOneSignalEnvDebug("sendDirectPushToUser:request");
+
+  const res = await fetch(ONESIGNAL_NOTIFICATIONS_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Key ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       app_id: appId,
       target_channel: "push",
@@ -100,6 +104,7 @@ export async function sendDirectPushToUser(
 
   if (!res.ok) {
     const text = await res.text();
+    logOneSignalEnvDebug(`sendDirectPushToUser:http_${res.status}`);
     return { ok: false, error: text.slice(0, 500) };
   }
 
