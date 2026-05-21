@@ -1,10 +1,10 @@
 import {
-  getOneSignalAppId,
-  getOneSignalNotificationHeaders,
-  getSiteUrl,
+  postOneSignalNotification,
+  type OneSignalSendDebug,
+} from "@/lib/onesignal/api-request";
+import {
   isOneSignalSendEnabled,
   logOneSignalEnvDebug,
-  ONESIGNAL_NOTIFICATIONS_URL,
 } from "@/lib/onesignal/config";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -17,7 +17,7 @@ export type DirectPushMessage = {
 
 export type DirectPushResult =
   | { ok: true }
-  | { ok: false; error: string; skipped?: boolean };
+  | { ok: false; error: string; skipped?: boolean; debug?: OneSignalSendDebug };
 
 const TEST_COOLDOWN_MS = 60_000;
 
@@ -42,14 +42,6 @@ export function markPushTestSent(userId: string): void {
   getCooldownMap().set(userId, Date.now());
 }
 
-function resolveUrl(pathOrUrl: string | undefined): string {
-  const base = getSiteUrl().replace(/\/$/, "");
-  if (!pathOrUrl?.trim()) return `${base}/dashboard`;
-  const raw = pathOrUrl.trim();
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  return `${base}${raw.startsWith("/") ? raw : `/${raw}`}`;
-}
-
 async function profileAcceptsPush(userId: string): Promise<boolean> {
   const supabase = createServiceClient();
   const { data } = await supabase
@@ -62,8 +54,7 @@ async function profileAcceptsPush(userId: string): Promise<boolean> {
 }
 
 /**
- * Envoie une notification push à un utilisateur (alias external_id = profile UUID).
- * Clé REST uniquement côté serveur.
+ * Envoie une notification push (external_id = UUID profil Supabase).
  */
 export async function sendDirectPushToUser(
   userId: string,
@@ -74,38 +65,23 @@ export async function sendDirectPushToUser(
     return { ok: false, error: "onesignal_disabled" };
   }
 
-  const headers = getOneSignalNotificationHeaders();
-  if (!headers) {
-    logOneSignalEnvDebug("sendDirectPushToUser:missing_key");
-    return { ok: false, error: "missing_rest_api_key" };
-  }
-
   if (!(await profileAcceptsPush(userId))) {
     return { ok: false, error: "push_disabled", skipped: true };
   }
 
-  const appId = getOneSignalAppId();
-  const url = resolveUrl(message.url);
-
-  logOneSignalEnvDebug("sendDirectPushToUser:request");
-
-  const res = await fetch(ONESIGNAL_NOTIFICATIONS_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      app_id: appId,
-      target_channel: "push",
-      include_aliases: { external_id: [userId] },
-      headings: { fr: message.title, en: message.title },
-      contents: { fr: message.body, en: message.body },
-      url,
-    }),
+  const result = await postOneSignalNotification({
+    userId,
+    title: message.title,
+    body: message.body,
+    url: message.url,
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    logOneSignalEnvDebug(`sendDirectPushToUser:http_${res.status}`);
-    return { ok: false, error: text.slice(0, 500) };
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error,
+      debug: result.debug,
+    };
   }
 
   return { ok: true };
@@ -131,9 +107,6 @@ export async function fetchAdminProfileIds(): Promise<string[]> {
   return [...new Set((links ?? []).map((r) => r.profile_id as string))];
 }
 
-/**
- * Envoie une notification à tous les profils admin (push activé).
- */
 export async function sendDirectPushToAdmins(
   message: DirectPushMessage,
   options?: { excludeUserId?: string },

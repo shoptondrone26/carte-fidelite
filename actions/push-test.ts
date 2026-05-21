@@ -12,9 +12,28 @@ import { isOneSignalSendEnabled } from "@/lib/onesignal/config";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
+import type { OneSignalSendDebug } from "@/lib/onesignal/api-request";
+
 export type PushTestResult =
   | { ok: true; detail?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; debug?: OneSignalSendDebug };
+
+function formatDebugForAdmin(debug?: OneSignalSendDebug): string | undefined {
+  if (!debug) return undefined;
+  return [
+    `env REST: ${debug.env_ONESIGNAL_REST_API_KEY ? "oui" : "non"}`,
+    `env APP_API: ${debug.env_ONESIGNAL_APP_API_KEY ? "oui" : "non"}`,
+    `clé: ${debug.restKeyPresent ? `oui (${debug.restKeyLength} car.)` : "non"}`,
+    `type: ${debug.keyKind} → ${debug.authScheme}`,
+    `app_id: ${debug.appIdPresent ? `oui (${debug.appIdLength})` : "non"}`,
+    debug.httpStatus != null ? `HTTP ${debug.httpStatus}` : null,
+    debug.oneSignalResponse
+      ? `OneSignal: ${debug.oneSignalResponse.slice(0, 280)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 async function assertAuthenticated() {
   const supabase = await createClient();
@@ -70,7 +89,13 @@ export async function sendTestPushToSelfAction(): Promise<PushTestResult> {
           "Notifications désactivées sur votre profil. Activez-les ci-dessous puis réessayez.",
       };
     }
-    return { ok: false, error: result.error ?? "Échec envoi OneSignal." };
+    const detail = formatDebugForAdmin(result.debug);
+    const baseError = result.error ?? "Échec envoi OneSignal.";
+    return {
+      ok: false,
+      error: detail ? `${baseError}\n${detail}` : baseError,
+      debug: result.debug,
+    };
   }
 
   markPushTestSent(auth.user.id);

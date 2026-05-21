@@ -5,16 +5,23 @@ export function isOneSignalClientEnabled(): boolean {
 /** Nom d’env documenté pour activer les logs + panneau diagnostic push */
 export const PUSH_DEBUG_ENV = "NEXT_PUBLIC_PUSH_DEBUG";
 
-/** Endpoint officiel push (Create message API). */
+export type OneSignalKeyKind =
+  | "app_v2"
+  | "legacy_rest"
+  | "org_v2"
+  | "missing";
+
+/** @deprecated Utiliser ONESIGNAL_V2_NOTIFICATIONS_URL dans api-request.ts */
 export const ONESIGNAL_NOTIFICATIONS_URL =
   "https://api.onesignal.com/notifications?c=push";
 
 /**
- * Clé REST / App API Key (serveur uniquement).
- * Retire espaces, retours ligne et préfixes Bearer/Key copiés par erreur dans l’env.
+ * App API Key ou Legacy REST API Key (serveur uniquement).
+ * Lit ONESIGNAL_REST_API_KEY puis ONESIGNAL_APP_API_KEY (nom doc officiel).
  */
 export function getOneSignalRestApiKey(): string | null {
-  const raw = process.env.ONESIGNAL_REST_API_KEY;
+  const raw =
+    process.env.ONESIGNAL_REST_API_KEY ?? process.env.ONESIGNAL_APP_API_KEY;
   if (typeof raw !== "string") return null;
 
   let key = raw.replace(/\r/g, "").replace(/\n/g, "").trim();
@@ -27,6 +34,8 @@ export function getOneSignalRestApiKey(): string | null {
   const lower = key.toLowerCase();
   if (lower.startsWith("bearer ")) {
     key = key.slice(7).trim();
+  } else if (lower.startsWith("basic ")) {
+    key = key.slice(6).trim();
   } else if (lower.startsWith("key ")) {
     key = key.slice(4).trim();
   }
@@ -34,45 +43,50 @@ export function getOneSignalRestApiKey(): string | null {
   return key.length > 0 ? key : null;
 }
 
+export function getOneSignalKeyKind(): OneSignalKeyKind {
+  const key = getOneSignalRestApiKey();
+  if (!key) return "missing";
+  if (key.startsWith("os_v2_app_")) return "app_v2";
+  if (key.startsWith("os_v2_org_")) return "org_v2";
+  return "legacy_rest";
+}
+
 export function isOneSignalSendEnabled(): boolean {
   return isOneSignalClientEnabled() && getOneSignalRestApiKey() != null;
 }
 
-/** Diagnostic env (jamais la clé en clair). DEBUG_ONESIGNAL=1 ou NODE_ENV=development */
-export function logOneSignalEnvDebug(context: string): void {
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.DEBUG_ONESIGNAL !== "1"
-  ) {
-    return;
-  }
-
+/** Diagnostic env (jamais la clé en clair). Toujours en cas d’échec HTTP ; sinon DEBUG_ONESIGNAL=1 ou dev. */
+export function logOneSignalEnvDebug(
+  context: string,
+  extra?: Record<string, unknown>,
+): void {
   const key = getOneSignalRestApiKey();
   const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID?.trim();
+  const keyKind = getOneSignalKeyKind();
+  const authScheme = keyKind === "legacy_rest" ? "Basic" : "Key";
 
-  // eslint-disable-next-line no-console -- diagnostic opt-in
+  const always =
+    context.includes("failed") ||
+    context.includes("missing") ||
+    process.env.DEBUG_ONESIGNAL === "1" ||
+    process.env.NODE_ENV !== "production";
+
+  if (!always) return;
+
+  // eslint-disable-next-line no-console -- diagnostic serveur
   console.log(`[onesignal:${context}]`, {
-    ONESIGNAL_REST_API_KEY_defined:
+    env_ONESIGNAL_REST_API_KEY:
       typeof process.env.ONESIGNAL_REST_API_KEY === "string",
+    env_ONESIGNAL_APP_API_KEY:
+      typeof process.env.ONESIGNAL_APP_API_KEY === "string",
     restKeyPresent: Boolean(key),
     restKeyLength: key?.length ?? 0,
-    restKeyLooksOsV2: key?.startsWith("os_v2_app_") ?? false,
+    keyKind,
+    authScheme,
     appIdPresent: Boolean(appId),
     appIdLength: appId?.length ?? 0,
-    notificationsUrl: ONESIGNAL_NOTIFICATIONS_URL,
-    authHeaderFormat: "Key <REST_API_KEY>",
+    ...extra,
   });
-}
-
-/** En-têtes REST OneSignal — Authorization: Key … (pas Bearer). */
-export function getOneSignalNotificationHeaders(): Record<string, string> | null {
-  const apiKey = getOneSignalRestApiKey();
-  if (!apiKey) return null;
-
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Key ${apiKey}`,
-  };
 }
 
 /** @deprecated Alias — envoi serveur */

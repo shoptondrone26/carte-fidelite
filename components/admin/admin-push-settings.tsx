@@ -74,7 +74,11 @@ export function AdminPushSettings({
     start(async () => {
       const res = await sendTestPushToSelfAction();
       if (res.ok) toast.success(res.detail ?? "Notification test envoyée");
-      else toast.error(res.error);
+      else
+        toast.error("Échec envoi test", {
+          description: res.error,
+          duration: 12_000,
+        });
     });
   };
 
