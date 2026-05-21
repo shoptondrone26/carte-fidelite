@@ -1,8 +1,5 @@
-import {
-  getOneSignalAppId,
-  getSiteUrl,
-  isOneSignalSendEnabled,
-} from "@/lib/onesignal/config";
+import { getSiteUrl, isOneSignalSendEnabled } from "@/lib/onesignal/config";
+import { sendDirectPushToUser } from "@/lib/onesignal/direct-send";
 import {
   buildPushMessage,
   type PushKind,
@@ -51,45 +48,19 @@ export async function sendPushNow({
     return { ok: false, error: "onesignal_disabled" };
   }
 
-  const apiKey = process.env.ONESIGNAL_REST_API_KEY?.trim();
-  if (!apiKey) {
-    return { ok: false, error: "missing_rest_api_key" };
-  }
+  const message = buildPushMessage(kind, getSiteUrl(), payload);
 
-  const supabase = createServiceClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("push_enabled")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profile?.push_enabled === false) {
-    return { ok: false, error: "push_disabled" };
-  }
-
-  const appId = getOneSignalAppId();
-  const siteUrl = getSiteUrl();
-  const message = buildPushMessage(kind, siteUrl, payload);
-
-  const res = await fetch("https://api.onesignal.com/notifications", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Key ${apiKey}`,
-    },
-    body: JSON.stringify({
-      app_id: appId,
-      target_channel: "push",
-      include_aliases: { external_id: [userId] },
-      headings: { fr: message.title, en: message.title },
-      contents: { fr: message.body, en: message.body },
-      url: message.url,
-    }),
+  const result = await sendDirectPushToUser(userId, {
+    title: message.title,
+    body: message.body,
+    url: message.url,
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    return { ok: false, error: text.slice(0, 500) };
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.skipped ? "push_disabled" : result.error,
+    };
   }
 
   return { ok: true };

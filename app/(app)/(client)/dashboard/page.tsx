@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardLive } from "@/components/client/dashboard-live";
+import { PushSettingsPanel } from "@/components/notifications/push-settings-panel";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { fetchClientPhantomRequest } from "@/lib/phantom/requests";
 import type { ClientLoyaltySnapshot } from "@/lib/realtime/client-loyalty";
@@ -114,26 +115,31 @@ export default async function DashboardPage() {
       ) : null}
 
       {profile ? (
-        <DashboardLive
-          userId={user.id}
-          displayName={displayName}
-          initial={loyaltyInitial}
-          initialBooking={
-            booking
-              ? {
-                  id: booking.id,
-                  created_at: booking.created_at,
-                  starts_at: booking.starts_at,
-                  status: booking.status as
-                    | "pending"
-                    | "accepted"
-                    | "refused"
-                    | "cancelled",
-                }
-              : null
-          }
-          initialPhantomRequest={phantomRequest}
-        />
+        <>
+          <PushSettingsPanel
+            initialEnabled={profile.push_enabled !== false}
+          />
+          <DashboardLive
+            userId={user.id}
+            displayName={displayName}
+            initial={loyaltyInitial}
+            initialBooking={
+              booking
+                ? {
+                    id: booking.id,
+                    created_at: booking.created_at,
+                    starts_at: booking.starts_at,
+                    status: booking.status as
+                      | "pending"
+                      | "accepted"
+                      | "refused"
+                      | "cancelled",
+                  }
+                : null
+            }
+            initialPhantomRequest={phantomRequest}
+          />
+        </>
       ) : (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
           Profil introuvable. Le trigger sur{" "}

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
+import { PushSessionBridge } from "@/components/notifications/push-session-bridge";
 import { requireAdmin } from "@/lib/admin/require-admin";
 
 export default async function AdminLayout({
@@ -12,6 +13,7 @@ export default async function AdminLayout({
 
   return (
     <AdminShell adminDisplayName={displayName}>
+      <PushSessionBridge />
       {children}
     </AdminShell>
   );

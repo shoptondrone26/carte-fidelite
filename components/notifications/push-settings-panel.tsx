@@ -7,6 +7,7 @@ import {
   setPushEnabledAction,
   syncPushSubscriptionAction,
 } from "@/actions/push-preferences";
+import { sendTestPushToSelfAction } from "@/actions/push-test";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
 import {
   pollAndSyncPushSubscription,
@@ -212,6 +213,18 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
     });
   };
 
+  const onTestPush = () => {
+    start(async () => {
+      const res = await sendTestPushToSelfAction();
+      if (res.ok) {
+        toast.success(res.detail ?? "Notification test envoyée");
+      } else {
+        setLastError(res.error);
+        toast.error(res.error);
+      }
+    });
+  };
+
   const onDisable = () => {
     start(async () => {
       setLastError(null);
@@ -317,6 +330,16 @@ export function PushSettingsPanel({ initialEnabled }: PushSettingsPanelProps) {
         >
           Désactiver
         </button>
+        {enabled && sdkReady ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onTestPush}
+            className="min-h-12 rounded-full border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-xs font-semibold text-sky-100 disabled:opacity-40 active:scale-[0.98]"
+          >
+            Envoyer un test
+          </button>
+        ) : null}
       </div>
 
       {debugUi && debugSnap ? (
