@@ -6,6 +6,7 @@ import {
 } from "@/actions/push-preferences";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
 import {
+  ensureOneSignalLogin,
   normalizeOneSignalClientError,
   pollAndSyncPushSubscription,
   runOneSignalTask,
@@ -45,18 +46,12 @@ async function syncSubscriptionId(
 
 /**
  * Activation client : APIs publiques OneSignal v16 uniquement, via OneSignalDeferred.
+ * - sérialisée par le mutex global (évite double login → ye.Qe).
+ * - login idempotent : pas de re-login si PushSessionBridge l’a déjà fait.
  */
 export async function activateClientPushNotifications(): Promise<ActivateClientPushResult> {
   if (!isOneSignalClientEnabled()) {
     return { ok: false, error: "Notifications non configurées sur ce site." };
-  }
-
-  if (typeof window !== "undefined" && !window.OneSignalDeferred) {
-    return {
-      ok: false,
-      error:
-        "Le service de notifications n’est pas encore chargé. Rechargez la page.",
-    };
   }
 
   if (isIosDevice() && !isStandalonePwa()) {
@@ -68,18 +63,17 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
     };
   }
 
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Connectez-vous pour activer les notifications." };
+  }
+
   try {
     const subscriptionId = await runOneSignalTask(async (oneSignal) => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("Connectez-vous pour activer les notifications.");
-      }
-
-      pushDebugLog("client activation: OneSignal.login", user.id);
-      await oneSignal.login(user.id);
+      await ensureOneSignalLogin(oneSignal, user.id);
 
       pushDebugLog("client activation: requestPermission");
       await oneSignal.Notifications.requestPermission();
@@ -90,9 +84,7 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
           Notification.permission === "granted");
 
       if (!granted) {
-        throw new Error(
-          "Permission refusée. Autorisez les notifications dans les réglages du navigateur.",
-        );
+        throw new Error("PERMISSION_DENIED");
       }
 
       if (!oneSignal.User.PushSubscription.optedIn) {
@@ -100,10 +92,10 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
         await oneSignal.User.PushSubscription.optIn();
       }
 
-      let id = oneSignal.User.PushSubscription.id ?? null;
-      if (id) {
-        await syncSubscriptionId(id);
-        return id;
+      const immediateId = oneSignal.User.PushSubscription.id ?? null;
+      if (immediateId) {
+        await syncSubscriptionId(immediateId);
+        return immediateId;
       }
 
       const polled = await pollAndSyncPushSubscription(
@@ -122,7 +114,7 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
       }
 
       return polled;
-    }, 60_000);
+    }, 45_000);
 
     const enabledRes = await setPushEnabledAction(true);
     if (!enabledRes.ok) {
@@ -131,20 +123,21 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
 
     return { ok: true, subscriptionId };
   } catch (e) {
-    const msg = normalizeOneSignalClientError(e);
-    if (msg.includes("refusée") || msg.includes("Permission")) {
+    const raw = e instanceof Error ? e.message : String(e);
+    if (raw === "PERMISSION_DENIED") {
       return {
         ok: false,
         error:
           "Permission refusée. Autorisez les notifications dans les réglages du navigateur.",
       };
     }
+    const msg = normalizeOneSignalClientError(e);
     return { ok: false, error: msg };
   }
 }
 
 /**
- * Si l’utilisateur est déjà opt-in côté OneSignal mais pas encore en base.
+ * Sync silencieuse si l’utilisateur est déjà opt-in côté OneSignal mais pas en base.
  */
 export async function syncExistingClientPushSubscription(): Promise<boolean> {
   if (!isOneSignalClientEnabled()) return false;
