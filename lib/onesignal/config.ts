@@ -111,3 +111,37 @@ export function getSiteUrl(): string {
   }
   return "http://localhost:3000";
 }
+
+/**
+ * URL stable de l’app utilisée pour les liens cliquables des notifications push.
+ * Évite que les pushs ouvrent un déploiement preview Vercel.
+ * Ordre de priorité :
+ *  1. NEXT_PUBLIC_SITE_URL (explicite, prod)
+ *  2. VERCEL_PROJECT_PRODUCTION_URL (hostname stable Vercel prod)
+ *  3. VERCEL_URL (deploy courant — utile en dev/preview)
+ *  4. localhost
+ */
+export function getPushTargetSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (prodHost) {
+    return `https://${prodHost.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  const vercelHost = process.env.VERCEL_URL?.trim();
+  if (vercelHost) {
+    return `https://${vercelHost.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+/** Construit un lien absolu stable vers une route de l’app (pour pushs). */
+export function buildPushLaunchUrl(path: string): string {
+  const base = getPushTargetSiteUrl().replace(/\/+$/, "");
+  if (!path) return `${base}/`;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}

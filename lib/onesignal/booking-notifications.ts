@@ -1,5 +1,8 @@
 import { formatSlotDateTime } from "@/lib/booking/format";
-import { getSiteUrl, isOneSignalSendEnabled } from "@/lib/onesignal/config";
+import {
+  buildPushLaunchUrl,
+  isOneSignalSendEnabled,
+} from "@/lib/onesignal/config";
 import {
   sendDirectPushToAdmins,
   sendDirectPushToUser,
@@ -63,8 +66,8 @@ async function loadBookingContext(bookingId: string): Promise<{
   };
 }
 
-const adminReservationsUrl = () => `${getSiteUrl().replace(/\/$/, "")}/admin/reservations`;
-const clientDeblocageUrl = () => `${getSiteUrl().replace(/\/$/, "")}/deblocage`;
+const adminReservationsUrl = () => buildPushLaunchUrl("/admin/reservations");
+const clientDeblocageUrl = () => buildPushLaunchUrl("/deblocage");
 
 /** Nouvelle demande pending → tous les admins. */
 export function notifyAdminsNewPendingBooking(input: {

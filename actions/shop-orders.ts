@@ -7,6 +7,10 @@ import type { ShopDeliveryMethod, ShopOrder } from "@/lib/boutique/orders";
 import { fetchClientActiveShopOrders } from "@/lib/boutique/orders";
 import type { ShopPaymentMethod } from "@/lib/boutique/payment";
 import { getIsAdmin } from "@/lib/auth/roles";
+import {
+  notifyAdminsNewShopOrder,
+  notifyAdminsShopOrderCancelledByClient,
+} from "@/lib/onesignal/admin-business-notifications";
 import { createClient } from "@/lib/supabase/server";
 
 const orderIdSchema = z.string().uuid();
@@ -138,7 +142,12 @@ export async function createShopOrderAction(
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
 
-  return { ok: true, order: mapRpcOrder(data as Record<string, unknown>) };
+  const order = mapRpcOrder(data as Record<string, unknown>);
+  if (order?.id) {
+    notifyAdminsNewShopOrder(order.id);
+  }
+
+  return { ok: true, order };
 }
 
 export type SubmitShopCartResult =
@@ -220,7 +229,13 @@ export async function submitShopCartOrdersAction(
   revalidatePath("/admin/boutique");
 
   const order = mapRpcOrder(data as Record<string, unknown>);
-  return { ok: true, orderId: order?.id ?? String((data as { id: string }).id) };
+  const orderId = order?.id ?? String((data as { id: string }).id);
+
+  if (orderId) {
+    notifyAdminsNewShopOrder(orderId);
+  }
+
+  return { ok: true, orderId };
 }
 
 export async function cancelShopOrderAction(
@@ -257,6 +272,8 @@ export async function cancelShopOrderAction(
   revalidatePath("/boutique");
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
+
+  notifyAdminsShopOrderCancelledByClient(orderId.data);
 
   return { ok: true };
 }

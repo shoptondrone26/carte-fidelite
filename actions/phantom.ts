@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getIsAdmin } from "@/lib/auth/roles";
+import { notifyAdminsNewPhantomRequest } from "@/lib/onesignal/admin-business-notifications";
 import {
   fetchClientPhantomRequest,
   type PhantomRequest,
@@ -53,6 +54,12 @@ export async function createPhantomRequestAction(): Promise<PhantomActionResult>
   revalidatePath("/admin/history");
 
   const request = await fetchClientPhantomRequest(supabase, user.id);
+
+  notifyAdminsNewPhantomRequest({
+    clientProfileId: user.id,
+    requestId: request?.id,
+  });
+
   return request ? { ok: true, request } : { ok: true };
 }
 

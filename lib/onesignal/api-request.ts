@@ -2,7 +2,7 @@ import {
   getOneSignalAppId,
   getOneSignalKeyKind,
   getOneSignalRestApiKey,
-  getSiteUrl,
+  getPushTargetSiteUrl,
   logOneSignalEnvDebug,
   type OneSignalKeyKind,
 } from "@/lib/onesignal/config";
@@ -82,7 +82,7 @@ function authHeader(key: string, kind: OneSignalKeyKind): string | null {
 }
 
 function resolveUrl(pathOrUrl: string | undefined): string {
-  const base = getSiteUrl().replace(/\/$/, "");
+  const base = getPushTargetSiteUrl().replace(/\/$/, "");
   if (!pathOrUrl?.trim()) return `${base}/dashboard`;
   const raw = pathOrUrl.trim();
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
@@ -173,6 +173,8 @@ export async function postOneSignalNotification(input: {
         headings: { fr: input.title, en: input.title },
         contents: { fr: input.body, en: input.body },
         url: launchUrl,
+        web_url: launchUrl,
+        data: { url: launchUrl },
       }
     : {
         app_id: appId,
@@ -181,6 +183,8 @@ export async function postOneSignalNotification(input: {
         headings: { fr: input.title, en: input.title },
         contents: { fr: input.body, en: input.body },
         url: launchUrl,
+        web_url: launchUrl,
+        data: { url: launchUrl },
       };
 
   logOneSignalEnvDebug(`post:${keyKind}`);

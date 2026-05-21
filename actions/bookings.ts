@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { notifyAdminsBookingCancelledByClient } from "@/lib/onesignal/admin-business-notifications";
 import {
   notifyAdminsNewPendingBooking,
 } from "@/lib/onesignal/booking-notifications";
@@ -135,6 +136,11 @@ export async function cancelPendingBookingAction(
   revalidatePath("/dashboard");
   revalidatePath("/admin");
   revalidatePath("/admin/reservations");
+
+  notifyAdminsBookingCancelledByClient({
+    bookingId,
+    clientProfileId: user.id,
+  });
 
   return { ok: true };
 }
