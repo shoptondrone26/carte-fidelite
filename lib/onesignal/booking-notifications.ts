@@ -1,4 +1,5 @@
 import { formatSlotDateTime } from "@/lib/booking/format";
+import { runAfterResponse } from "@/lib/onesignal/after-response";
 import {
   buildPushLaunchUrl,
   isOneSignalSendEnabled,
@@ -14,15 +15,13 @@ function logPushFailure(context: string, detail: string): void {
   console.error(`[booking-push:${context}]`, detail);
 }
 
-/** Exécution fire-and-forget : ne bloque jamais l’action réservation. */
+/**
+ * Exécution post-réponse via `after()` (Next 16) : garantie de tourner
+ * sur Vercel serverless, contrairement à un simple `void task()`.
+ */
 function runBookingPush(task: () => Promise<void>): void {
   if (!isOneSignalSendEnabled()) return;
-  void task().catch((err) => {
-    logPushFailure(
-      "unhandled",
-      err instanceof Error ? err.message : String(err),
-    );
-  });
+  runAfterResponse(task);
 }
 
 function clientDisplayName(

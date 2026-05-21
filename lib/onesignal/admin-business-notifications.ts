@@ -1,3 +1,4 @@
+import { runAfterResponse } from "@/lib/onesignal/after-response";
 import {
   buildPushLaunchUrl,
   isOneSignalSendEnabled,
@@ -7,8 +8,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * Notifications push métier envoyées aux admins suite à une action client.
- * Toutes les fonctions sont fire-and-forget : ne bloquent jamais l’action,
- * et logguent en cas d’échec sans crasher.
+ * Exécutées via `after()` (Next 16) — garanti côté Vercel serverless.
+ * Non bloquantes : aucune erreur ne remonte à l’UI client.
  */
 
 function logFailure(context: string, detail: string): void {
@@ -18,9 +19,7 @@ function logFailure(context: string, detail: string): void {
 
 function runFireAndForget(task: () => Promise<void>): void {
   if (!isOneSignalSendEnabled()) return;
-  void task().catch((err) => {
-    logFailure("unhandled", err instanceof Error ? err.message : String(err));
-  });
+  runAfterResponse(task);
 }
 
 function shortenName(fullName: string | null | undefined): string {
