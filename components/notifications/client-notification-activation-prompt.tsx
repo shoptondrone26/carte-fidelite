@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Bell, BellRing, CheckCircle2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
+import { sendTestPushToSelfAction } from "@/actions/push-test";
 import {
   activateClientPushNotifications,
   isIosDevice,
@@ -11,7 +12,6 @@ import {
   syncExistingClientPushSubscription,
 } from "@/lib/onesignal/activate-client-push";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
-import { waitForOneSignalSdkReady } from "@/lib/onesignal/subscription-sync";
 import { cn } from "@/lib/utils";
 
 type ClientNotificationActivationPromptProps = {
@@ -29,7 +29,7 @@ export function ClientNotificationActivationPrompt({
   const [iosNeedsPwa, setIosNeedsPwa] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [sdkPrepared, setSdkPrepared] = useState(false);
+  const [testPending, startTest] = useTransition();
   const didTrySyncRef = useRef(false);
 
   const sdkReady = isOneSignalClientEnabled();
@@ -43,20 +43,6 @@ export function ClientNotificationActivationPrompt({
   }, []);
 
   useEffect(() => {
-    if (!sdkReady || iosNeedsPwa) {
-      setSdkPrepared(false);
-      return;
-    }
-    let cancelled = false;
-    void waitForOneSignalSdkReady(25_000).then((ready) => {
-      if (!cancelled) setSdkPrepared(ready);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sdkReady, iosNeedsPwa]);
-
-  useEffect(() => {
     if (subscribed || !sdkReady || didTrySyncRef.current) return;
     didTrySyncRef.current = true;
     void syncExistingClientPushSubscription().then((synced) => {
@@ -67,6 +53,17 @@ export function ClientNotificationActivationPrompt({
   if (subscribed && !justActivated) {
     return null;
   }
+
+  const onTestPush = () => {
+    startTest(async () => {
+      const res = await sendTestPushToSelfAction();
+      if (res.ok) {
+        toast.success(res.detail ?? "Notification test envoyée");
+      } else {
+        toast.error("Test impossible", { description: res.error, duration: 10_000 });
+      }
+    });
+  };
 
   if (subscribed && justActivated) {
     return (
@@ -81,7 +78,7 @@ export function ClientNotificationActivationPrompt({
             className="mt-0.5 size-5 shrink-0 text-emerald-300"
             aria-hidden
           />
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-emerald-50">
               Notifications activées
             </p>
@@ -89,6 +86,14 @@ export function ClientNotificationActivationPrompt({
               Vous recevrez vos confirmations de réservation et vos alertes
               ShopTonDrone sur cet appareil.
             </p>
+            <button
+              type="button"
+              disabled={testPending}
+              onClick={() => void onTestPush()}
+              className="mt-3 text-xs font-semibold text-emerald-200 underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              {testPending ? "Envoi du test…" : "Recevoir une notification test"}
+            </button>
           </div>
         </div>
       </section>
@@ -107,13 +112,6 @@ export function ClientNotificationActivationPrompt({
         description:
           "Ajoutez l’application à l’écran d’accueil pour activer les notifications.",
         duration: 8000,
-      });
-      return;
-    }
-
-    if (!sdkPrepared) {
-      toast.message("Chargement des notifications…", {
-        description: "Patientez une seconde puis réessayez.",
       });
       return;
     }
@@ -203,7 +201,7 @@ export function ClientNotificationActivationPrompt({
 
       <button
         type="button"
-        disabled={isActivating || (!iosNeedsPwa && !sdkPrepared)}
+        disabled={isActivating}
         onClick={() => void onActivate()}
         className={cn(
           "relative mt-4 flex w-full min-h-12 items-center justify-center gap-2 rounded-full",
@@ -213,11 +211,7 @@ export function ClientNotificationActivationPrompt({
         )}
       >
         <Bell className="size-4" aria-hidden />
-        {isActivating
-          ? "Activation…"
-          : !sdkPrepared && !iosNeedsPwa
-            ? "Préparation…"
-            : "Activer les notifications"}
+        {isActivating ? "Activation…" : "Activer les notifications"}
       </button>
     </section>
   );

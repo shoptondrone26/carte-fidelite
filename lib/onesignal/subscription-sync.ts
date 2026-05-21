@@ -4,81 +4,15 @@ import { pushDebugLog } from "@/lib/push-debug";
 import type { OneSignalWeb } from "@/types/onesignal";
 
 const DEFAULT_TASK_TIMEOUT_MS = 30_000;
-const ONESIGNAL_TIMEOUT_MSG =
+export const ONESIGNAL_TIMEOUT_MSG =
   "OneSignal indisponible (délai dépassé). Rechargez la page puis réessayez.";
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isOneSignalReady(oneSignal: OneSignalWeb | undefined): oneSignal is OneSignalWeb {
-  return Boolean(oneSignal?.User);
-}
+export const ONESIGNAL_NOT_LOADED_MSG =
+  "Le service de notifications n’est pas chargé. Rechargez la page.";
 
 /**
- * Attend que OneSignal.init ait fini (User disponible).
- * Poll d’abord, puis file Deferred si le SDK charge encore.
- */
-async function getReadyOneSignal(deadlineMs: number): Promise<OneSignalWeb> {
-  while (Date.now() < deadlineMs) {
-    if (isOneSignalReady(window.OneSignal)) {
-      return window.OneSignal;
-    }
-    await sleep(80);
-  }
-
-  const remaining = Math.max(500, deadlineMs - Date.now());
-  return new Promise<OneSignalWeb>((resolve, reject) => {
-    let settled = false;
-    const fail = () => {
-      if (!settled) {
-        settled = true;
-        reject(new Error(ONESIGNAL_TIMEOUT_MSG));
-      }
-    };
-
-    const timer = setTimeout(fail, remaining);
-
-    const finish = (oneSignal: OneSignalWeb) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve(oneSignal);
-      }
-    };
-
-    if (isOneSignalReady(window.OneSignal)) {
-      finish(window.OneSignal);
-      return;
-    }
-
-    window.OneSignalDeferred = window.OneSignalDeferred ?? [];
-    window.OneSignalDeferred.push(async (oneSignal) => {
-      const innerDeadline = Date.now() + remaining;
-      while (Date.now() < innerDeadline) {
-        if (isOneSignalReady(oneSignal)) {
-          finish(oneSignal);
-          return;
-        }
-        await sleep(80);
-      }
-      fail();
-    });
-  });
-}
-
-/** true si le SDK a terminé init (User exposé). */
-export function waitForOneSignalSdkReady(
-  timeoutMs = 20_000,
-): Promise<boolean> {
-  if (typeof window === "undefined") return Promise.resolve(false);
-  return getReadyOneSignal(Date.now() + timeoutMs)
-    .then(() => true)
-    .catch(() => false);
-}
-
-/**
- * Exécute une fonction OneSignal une fois le SDK prêt (évite timeout si init en cours).
+ * Exécute du code via la file OneSignalDeferred (instance passée par le SDK après init).
+ * N’utilise jamais window.OneSignal directement — évite les erreurs internes (ex. ye.Qe).
  */
 export function runOneSignalTask<T>(
   fn: (oneSignal: OneSignalWeb) => Promise<T>,
@@ -87,8 +21,6 @@ export function runOneSignalTask<T>(
   if (typeof window === "undefined") {
     return Promise.reject(new Error("OneSignal indisponible côté serveur."));
   }
-
-  const deadline = Date.now() + timeoutMs;
 
   return new Promise<T>((resolve, reject) => {
     let settled = false;
@@ -100,30 +32,54 @@ export function runOneSignalTask<T>(
       else reject(result.error);
     };
 
-    void (async () => {
+    const timer = setTimeout(() => {
+      finish({ ok: false, error: new Error(ONESIGNAL_TIMEOUT_MSG) });
+    }, timeoutMs);
+
+    window.OneSignalDeferred = window.OneSignalDeferred ?? [];
+    window.OneSignalDeferred.push(async (oneSignal) => {
+      if (settled) return;
       try {
-        const oneSignal = await getReadyOneSignal(deadline);
         const value = await fn(oneSignal);
+        clearTimeout(timer);
         finish({ ok: true, value });
       } catch (e) {
+        clearTimeout(timer);
         finish({
           ok: false,
           error: e instanceof Error ? e : new Error(String(e)),
         });
       }
-    })();
-
-    setTimeout(() => {
-      finish({ ok: false, error: new Error(ONESIGNAL_TIMEOUT_MSG) });
-    }, timeoutMs);
+    });
   });
+}
+
+/** true une fois qu’un callback Deferred a pu s’exécuter (SDK + init terminés). */
+export function waitForOneSignalSdkReady(
+  timeoutMs = 20_000,
+): Promise<boolean> {
+  return runOneSignalTask(async () => true, timeoutMs).catch(() => false);
+}
+
+export function normalizeOneSignalClientError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (
+    msg.includes("ye.") ||
+    msg.includes("is not an object") ||
+    msg.includes("evaluating")
+  ) {
+    return "Service notifications temporairement indisponible. Rechargez la page puis réessayez.";
+  }
+  if (msg === ONESIGNAL_NOT_LOADED_MSG || msg === ONESIGNAL_TIMEOUT_MSG) {
+    return msg;
+  }
+  return msg;
 }
 
 type SyncFn = (id: string) => Promise<unknown>;
 
 /**
- * Poll subscription id. Passer `existingOneSignal` si déjà dans un callback Deferred
- * (évite un second runOneSignalTask → deadlock / bouton bloqué sur « Activation… »).
+ * Poll subscription id. Passer `existingOneSignal` depuis un callback Deferred en cours.
  */
 export async function pollAndSyncPushSubscription(
   sync: SyncFn,

@@ -6,6 +6,7 @@ import {
 } from "@/actions/push-preferences";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
 import {
+  normalizeOneSignalClientError,
   pollAndSyncPushSubscription,
   runOneSignalTask,
 } from "@/lib/onesignal/subscription-sync";
@@ -43,11 +44,19 @@ async function syncSubscriptionId(
 }
 
 /**
- * Demande permission OneSignal, opt-in, sync subscription_id → profiles.
+ * Activation client : APIs publiques OneSignal v16 uniquement, via OneSignalDeferred.
  */
 export async function activateClientPushNotifications(): Promise<ActivateClientPushResult> {
   if (!isOneSignalClientEnabled()) {
     return { ok: false, error: "Notifications non configurées sur ce site." };
+  }
+
+  if (typeof window !== "undefined" && !window.OneSignalDeferred) {
+    return {
+      ok: false,
+      error:
+        "Le service de notifications n’est pas encore chargé. Rechargez la page.",
+    };
   }
 
   if (isIosDevice() && !isStandalonePwa()) {
@@ -65,14 +74,31 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        pushDebugLog("client activation: OneSignal.login", user.id);
-        await oneSignal.login(user.id);
+      if (!user) {
+        throw new Error("Connectez-vous pour activer les notifications.");
       }
 
-      pushDebugLog("client activation: requestPermission + optIn");
+      pushDebugLog("client activation: OneSignal.login", user.id);
+      await oneSignal.login(user.id);
+
+      pushDebugLog("client activation: requestPermission");
       await oneSignal.Notifications.requestPermission();
-      await oneSignal.User.PushSubscription.optIn();
+
+      const granted =
+        oneSignal.Notifications.permission === true ||
+        (typeof Notification !== "undefined" &&
+          Notification.permission === "granted");
+
+      if (!granted) {
+        throw new Error(
+          "Permission refusée. Autorisez les notifications dans les réglages du navigateur.",
+        );
+      }
+
+      if (!oneSignal.User.PushSubscription.optedIn) {
+        pushDebugLog("client activation: optIn");
+        await oneSignal.User.PushSubscription.optIn();
+      }
 
       let id = oneSignal.User.PushSubscription.id ?? null;
       if (id) {
@@ -96,7 +122,7 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
       }
 
       return polled;
-    }, 45_000);
+    }, 60_000);
 
     const enabledRes = await setPushEnabledAction(true);
     if (!enabledRes.ok) {
@@ -105,8 +131,8 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
 
     return { ok: true, subscriptionId };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("denied") || msg.includes("Permission")) {
+    const msg = normalizeOneSignalClientError(e);
+    if (msg.includes("refusée") || msg.includes("Permission")) {
       return {
         ok: false,
         error:
@@ -126,16 +152,13 @@ export async function syncExistingClientPushSubscription(): Promise<boolean> {
   try {
     return await runOneSignalTask(async (oneSignal) => {
       const id = oneSignal.User.PushSubscription.id;
-      const optedIn =
-        typeof oneSignal.User.PushSubscription.optedIn === "boolean"
-          ? oneSignal.User.PushSubscription.optedIn
-          : Boolean(id);
+      const optedIn = oneSignal.User.PushSubscription.optedIn === true;
       if (!id || !optedIn) return false;
 
       await syncSubscriptionId(id);
       const enabledRes = await setPushEnabledAction(true);
       return enabledRes.ok;
-    }, 12_000);
+    }, 15_000);
   } catch {
     return false;
   }

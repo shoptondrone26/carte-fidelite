@@ -22,6 +22,12 @@ export function getOneSignalBootstrapScript(): string | null {
     "window.OneSignalDeferred=window.OneSignalDeferred||[];",
     "window.OneSignalDeferred.push(async function(OneSignal){",
     `await OneSignal.init(${initJson});`,
+    "if('serviceWorker' in navigator){",
+    "try{",
+    "var reg=await navigator.serviceWorker.getRegistration('/');",
+    "if(!reg){await navigator.serviceWorker.register('/sw.js',{scope:'/'});}",
+    "}catch(e){}",
+    "}",
     "});",
   ].join("");
 }

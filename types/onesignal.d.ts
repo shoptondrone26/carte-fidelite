@@ -9,7 +9,8 @@ export type OneSignalWeb = {
   User: {
     PushSubscription: {
       id?: string | null;
-      optedIn?: boolean;
+      /** true si abonné aux push */
+      optedIn: boolean;
       optIn: () => Promise<void>;
       optOut: () => Promise<void>;
       addEventListener?: (event: "change", listener: () => void) => void;
@@ -17,6 +18,7 @@ export type OneSignalWeb = {
     };
   };
   Notifications: {
+    /** true si la permission navigateur est accordée */
     permission: boolean;
     requestPermission: () => Promise<void>;
   };
