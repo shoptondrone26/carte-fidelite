@@ -24,13 +24,13 @@ export function buildPushMessage(
     case "booking_accepted":
       return {
         title: "Réservation acceptée",
-        body: "Votre créneau a été validé par l’établissement.",
+        body: "Votre créneau a été confirmé par ShopTonDrone.",
         url: `${base}/deblocage`,
       };
     case "booking_refused":
       return {
-        title: "Réservation refusée",
-        body: "Vous pouvez choisir un autre créneau.",
+        title: "Réservation annulée",
+        body: "Votre réservation a été annulée. Vous pouvez demander un nouveau créneau.",
         url: `${base}/deblocage`,
       };
     case "free_available":

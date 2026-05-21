@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  notifyAdminsNewPendingBooking,
+} from "@/lib/onesignal/booking-notifications";
 import { bookingIdSchema, slotStartSchema } from "@/schemas/bookings";
-import { trackServerAnalyticsEvent } from "@/lib/analytics/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type BookingActionResult =
@@ -67,17 +69,22 @@ export async function createPendingBookingAction(
   revalidatePath("/dashboard");
   revalidatePath("/admin");
   revalidatePath("/admin/reservations");
-  await trackServerAnalyticsEvent("booking_created", {
-    booking_id: row.id as string,
-    starts_at: row.starts_at as string,
+
+  const bookingId = row.id as string;
+  const startsAt = row.starts_at as string;
+
+  notifyAdminsNewPendingBooking({
+    bookingId,
+    startsAt,
+    clientProfileId: user.id,
   });
 
   return {
     ok: true,
     booking: {
-      id: row.id as string,
+      id: bookingId,
       created_at: row.created_at as string,
-      starts_at: row.starts_at as string,
+      starts_at: startsAt,
       status: "pending",
     },
   };

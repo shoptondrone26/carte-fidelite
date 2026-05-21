@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  notifyClientBookingAccepted,
+  notifyClientBookingCancelled,
+} from "@/lib/onesignal/booking-notifications";
 import { bookingIdSchema } from "@/schemas/bookings";
-import { trackServerAnalyticsEvent } from "@/lib/analytics/server";
 import { getIsAdmin } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -49,9 +52,8 @@ export async function acceptBookingAction(
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
   revalidatePath("/admin/reservations");
-  await trackServerAnalyticsEvent("booking_accepted", {
-    booking_id: parsed.data,
-  });
+
+  notifyClientBookingAccepted(parsed.data);
 
   return { ok: true };
 }
@@ -94,9 +96,6 @@ export async function refuseBookingAction(
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
   revalidatePath("/admin/reservations");
-  await trackServerAnalyticsEvent("booking_refused", {
-    booking_id: parsed.data,
-  });
 
   return { ok: true };
 }
@@ -143,6 +142,8 @@ export async function cancelAdminBookingAction(
   revalidatePath("/admin/history");
   revalidatePath("/deblocage");
   revalidatePath("/dashboard");
+
+  notifyClientBookingCancelled(parsed.data);
 
   return { ok: true };
 }
