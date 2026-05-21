@@ -11,6 +11,7 @@ import {
   syncExistingClientPushSubscription,
 } from "@/lib/onesignal/activate-client-push";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
+import { waitForOneSignalSdkReady } from "@/lib/onesignal/subscription-sync";
 import { cn } from "@/lib/utils";
 
 type ClientNotificationActivationPromptProps = {
@@ -28,6 +29,7 @@ export function ClientNotificationActivationPrompt({
   const [iosNeedsPwa, setIosNeedsPwa] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [sdkPrepared, setSdkPrepared] = useState(false);
   const didTrySyncRef = useRef(false);
 
   const sdkReady = isOneSignalClientEnabled();
@@ -39,6 +41,20 @@ export function ClientNotificationActivationPrompt({
   useEffect(() => {
     setIosNeedsPwa(isIosDevice() && !isStandalonePwa());
   }, []);
+
+  useEffect(() => {
+    if (!sdkReady || iosNeedsPwa) {
+      setSdkPrepared(false);
+      return;
+    }
+    let cancelled = false;
+    void waitForOneSignalSdkReady(25_000).then((ready) => {
+      if (!cancelled) setSdkPrepared(ready);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sdkReady, iosNeedsPwa]);
 
   useEffect(() => {
     if (subscribed || !sdkReady || didTrySyncRef.current) return;
@@ -91,6 +107,13 @@ export function ClientNotificationActivationPrompt({
         description:
           "Ajoutez l’application à l’écran d’accueil pour activer les notifications.",
         duration: 8000,
+      });
+      return;
+    }
+
+    if (!sdkPrepared) {
+      toast.message("Chargement des notifications…", {
+        description: "Patientez une seconde puis réessayez.",
       });
       return;
     }
@@ -180,7 +203,7 @@ export function ClientNotificationActivationPrompt({
 
       <button
         type="button"
-        disabled={isActivating}
+        disabled={isActivating || (!iosNeedsPwa && !sdkPrepared)}
         onClick={() => void onActivate()}
         className={cn(
           "relative mt-4 flex w-full min-h-12 items-center justify-center gap-2 rounded-full",
@@ -190,7 +213,11 @@ export function ClientNotificationActivationPrompt({
         )}
       >
         <Bell className="size-4" aria-hidden />
-        {isActivating ? "Activation…" : "Activer les notifications"}
+        {isActivating
+          ? "Activation…"
+          : !sdkPrepared && !iosNeedsPwa
+            ? "Préparation…"
+            : "Activer les notifications"}
       </button>
     </section>
   );

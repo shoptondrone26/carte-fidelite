@@ -10,10 +10,14 @@ import {
   runOneSignalTask,
 } from "@/lib/onesignal/subscription-sync";
 import { pushDebugLog } from "@/lib/push-debug";
+import { createClient } from "@/lib/supabase/client";
 
 export function isIosDevice(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /iPad|iPhone|iPod/i.test(navigator.userAgent);
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && (navigator.maxTouchPoints ?? 0) > 1)
+  );
 }
 
 export function isStandalonePwa(): boolean {
@@ -57,6 +61,15 @@ export async function activateClientPushNotifications(): Promise<ActivateClientP
 
   try {
     const subscriptionId = await runOneSignalTask(async (oneSignal) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        pushDebugLog("client activation: OneSignal.login", user.id);
+        await oneSignal.login(user.id);
+      }
+
       pushDebugLog("client activation: requestPermission + optIn");
       await oneSignal.Notifications.requestPermission();
       await oneSignal.User.PushSubscription.optIn();

@@ -3,10 +3,8 @@
 import Script from "next/script";
 import { useEffect } from "react";
 
-import {
-  getOneSignalAppId,
-  isOneSignalClientEnabled,
-} from "@/lib/onesignal/config";
+import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
+import { runOneSignalTask } from "@/lib/onesignal/subscription-sync";
 import { pushDebugLog } from "@/lib/push-debug";
 
 export function OneSignalInit() {
@@ -15,15 +13,8 @@ export function OneSignalInit() {
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
 
-    window.OneSignalDeferred = window.OneSignalDeferred ?? [];
-    window.OneSignalDeferred.push(async (OneSignal) => {
-      await OneSignal.init({
-        appId: getOneSignalAppId(),
-        serviceWorkerPath: "/sw.js",
-        allowLocalhostAsSecureOrigin:
-          process.env.NODE_ENV === "development",
-      });
-      pushDebugLog("OneSignal init terminé (appId length)", getOneSignalAppId().length);
+    void runOneSignalTask(async () => {
+      pushDebugLog("OneSignal SDK prêt (client)");
       if ("serviceWorker" in navigator) {
         const existing = await navigator.serviceWorker.getRegistration("/");
         if (!existing) {
@@ -33,6 +24,8 @@ export function OneSignalInit() {
           pushDebugLog("Service Worker déjà enregistré");
         }
       }
+    }, 60_000).catch(() => {
+      /* init géré par bootstrap layout ; SW optionnel */
     });
   }, [enabled]);
 

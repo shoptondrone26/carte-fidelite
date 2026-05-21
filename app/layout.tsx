@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 
 import "./globals.css";
 
 import { OneSignalInit } from "@/components/notifications/onesignal-init";
+import { getOneSignalBootstrapScript } from "@/lib/onesignal/bootstrap-init";
 import { PwaClient } from "@/components/pwa/pwa-client";
 import { AppToaster } from "@/components/ui/app-toaster";
 
@@ -62,6 +64,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const oneSignalBootstrap = getOneSignalBootstrapScript();
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -90,6 +94,13 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-dvh bg-background text-foreground">
+        {oneSignalBootstrap ? (
+          <Script
+            id="onesignal-bootstrap"
+            strategy="beforeInteractive"
+            dangerouslySetInnerHTML={{ __html: oneSignalBootstrap }}
+          />
+        ) : null}
         {children}
         <AppToaster />
         <OneSignalInit />
