@@ -1,31 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { syncPushSubscriptionAction } from "@/actions/push-preferences";
 import { pushDebugLog } from "@/lib/push-debug";
 import { isOneSignalClientEnabled } from "@/lib/onesignal/config";
 import {
-  ensureOneSignalLogin,
+  pollAndSyncPushSubscription,
   runOneSignalTask,
-  setLinkedExternalId,
 } from "@/lib/onesignal/subscription-sync";
 import { createClient } from "@/lib/supabase/client";
 
-/**
- * Maintient l’association user Supabase ↔ OneSignal (login/logout) et persiste
- * l’éventuel subscription_id existant. Toutes les opérations passent par le mutex
- * global `runOneSignalTask`, ce qui évite les courses avec l’activation manuelle.
- */
 export function PushSessionBridge() {
+  const linkedUserRef = useRef<string | null>(null);
+  const detachSubListenerRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (!isOneSignalClientEnabled()) return;
 
-    let detachChange: (() => void) | null = null;
-    let cancelled = false;
-
     void runOneSignalTask(async (OneSignal) => {
-      if (cancelled) return;
       const sub = OneSignal.User.PushSubscription as unknown as {
         addEventListener?: (event: "change", fn: () => void) => void;
         removeEventListener?: (event: "change", fn: () => void) => void;
@@ -33,59 +26,78 @@ export function PushSessionBridge() {
       const onChange = () => {
         const id = OneSignal.User.PushSubscription.id;
         pushDebugLog("PushSubscription change, id=", id);
-        if (id) {
-          void syncPushSubscriptionAction(id).then((r) =>
-            pushDebugLog("sync après change", r),
-          );
-        }
+        if (id) void syncPushSubscriptionAction(id).then((r) => pushDebugLog("sync après change", r));
       };
       sub.addEventListener?.("change", onChange);
-      detachChange = () => sub.removeEventListener?.("change", onChange);
-    }).catch(() => {
-      /* SDK pas dispo : pas grave, l’activation manuelle gérera */
+      detachSubListenerRef.current = () =>
+        sub.removeEventListener?.("change", onChange);
     });
 
     const supabase = createClient();
 
-    async function loginIfPresent(userId: string) {
-      try {
-        await runOneSignalTask(async (OneSignal) => {
-          await ensureOneSignalLogin(OneSignal, userId);
-          // Sync immédiate si un id est déjà disponible (utilisateur déjà opt-in)
-          const existingId = OneSignal.User.PushSubscription.id;
-          if (existingId) {
-            const r = await syncPushSubscriptionAction(existingId);
-            pushDebugLog("sync immédiate (bridge)", r);
-          }
-        });
-      } catch (e) {
-        pushDebugLog("bridge login erreur", e);
-      }
+    async function syncUser(userId: string) {
+      await runOneSignalTask(async (OneSignal) => {
+        if (linkedUserRef.current !== userId) {
+          pushDebugLog("OneSignal.login", userId);
+          await OneSignal.login(userId);
+          linkedUserRef.current = userId;
+        }
+        const polled = await pollAndSyncPushSubscription(
+          async (id) => {
+            const r = await syncPushSubscriptionAction(id);
+            pushDebugLog("sync Supabase (poll bridge)", r);
+            return r;
+          },
+          undefined,
+          OneSignal,
+        );
+        pushDebugLog("poll subscription id (bridge)", polled);
+      });
     }
 
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      void supabase.auth.getUser().then(({ data }) => {
+        if (data.user) {
+          void runOneSignalTask(async (oneSignal) => {
+            await pollAndSyncPushSubscription(
+              async (id) => {
+                const r = await syncPushSubscriptionAction(id);
+                pushDebugLog("sync Supabase (visibility)", r);
+                return r;
+              },
+              { maxAttempts: 15, delayMs: 200 },
+              oneSignal,
+            );
+          });
+        }
+      });
+    }
+
+    document.addEventListener("visibilitychange", onVisible);
+
     void supabase.auth.getUser().then(({ data }) => {
-      if (cancelled) return;
-      if (data.user) void loginIfPresent(data.user.id);
+      if (data.user) void syncUser(data.user.id);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        setLinkedExternalId(null);
+        linkedUserRef.current = null;
         void runOneSignalTask(async (OneSignal) => {
           await OneSignal.logout();
-        }).catch(() => undefined);
+        });
         return;
       }
-      if (session?.user) void loginIfPresent(session.user.id);
+      if (session?.user) void syncUser(session.user.id);
     });
 
     return () => {
-      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
       subscription.unsubscribe();
-      detachChange?.();
-      detachChange = null;
+      detachSubListenerRef.current?.();
+      detachSubListenerRef.current = null;
     };
   }, []);
 
