@@ -395,7 +395,8 @@ function CancelLatestShopOrderDialog({
 
   if (!open || !order) return null;
 
-  const restoresStock = order.status === "payment_pending";
+  const restoresStock =
+    order.stock_reserved && order.status !== "completed";
   const wasCompleted = order.status === "completed";
 
   return (

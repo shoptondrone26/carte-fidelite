@@ -91,6 +91,7 @@ export type ClientLatestShopOrderSnippet = {
   product_name: string;
   total_price_eur: number;
   created_at: string;
+  stock_reserved: boolean;
 };
 
 export function isAdminCancellableLatestShopOrder(
@@ -117,6 +118,7 @@ export function buildLatestShopOrderByClient(
         product_name: row.product_name,
         total_price_eur: Number(row.total_price_eur),
         created_at: row.created_at,
+        stock_reserved: row.stock_reserved === true,
       });
     }
   }

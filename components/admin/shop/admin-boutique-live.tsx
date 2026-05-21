@@ -92,7 +92,7 @@ export function AdminBoutiqueLive({
   function onDelete(product: ShopProduct) {
     if (
       !window.confirm(
-        `Supprimer définitivement « ${product.name} » ? Cette action est irréversible.`,
+        `Supprimer « ${product.name} » ?\n\nSi ce produit figure dans une commande passée, il sera archivé (inactif) et restera visible ici. Sinon il sera supprimé définitivement.`,
       )
     ) {
       return;
@@ -101,11 +101,21 @@ export function AdminBoutiqueLive({
     startAction(async () => {
       const res = await deleteShopProductAction(product.id);
       if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== product.id));
-        if (panel?.type === "edit" && panel.product.id === product.id) {
-          setPanel(null);
+        if (res.archived && res.product) {
+          setProducts((prev) =>
+            prev.map((p) => (p.id === res.product!.id ? res.product! : p)),
+          );
+          if (panel?.type === "edit" && panel.product.id === product.id) {
+            setPanel({ type: "edit", product: res.product });
+          }
+          toast.success("Produit archivé (historique commandes conservé)");
+        } else {
+          setProducts((prev) => prev.filter((p) => p.id !== product.id));
+          if (panel?.type === "edit" && panel.product.id === product.id) {
+            setPanel(null);
+          }
+          toast.success("Produit supprimé");
         }
-        toast.success("Produit supprimé");
       } else {
         toast.error(res.error);
       }

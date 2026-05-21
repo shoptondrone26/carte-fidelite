@@ -34,7 +34,7 @@ const SELECT =
   "id, name, short_description, description, specs, price_eur, stock, image_url, image_urls, primary_image_index, category, is_active, sort_order, created_at, updated_at";
 
 export type ShopProductActionResult =
-  | { ok: true; product?: ShopProduct }
+  | { ok: true; product?: ShopProduct; archived?: boolean; hardDeleted?: boolean }
   | { ok: false; error: string };
 
 async function assertAdmin() {
@@ -163,14 +163,29 @@ export async function deleteShopProductAction(
     return { ok: false, error: "Identifiant produit invalide." };
   }
 
-  const { error } = await auth.supabase
-    .from("shop_products")
-    .delete()
-    .eq("id", idParsed.data);
+  const { data, error } = await auth.supabase.rpc("admin_delete_shop_product", {
+    p_product_id: idParsed.data,
+  });
 
   if (error) return { ok: false, error: error.message };
+
+  const result = data as { archived?: boolean; hard_deleted?: boolean } | null;
+  const archived = result?.archived === true;
+
+  if (archived) {
+    const { data: row, error: fetchError } = await auth.supabase
+      .from("shop_products")
+      .select(SELECT)
+      .eq("id", idParsed.data)
+      .single();
+
+    if (fetchError) return { ok: false, error: fetchError.message };
+    revalidateShopPaths();
+    return { ok: true, archived: true, product: mapShopProduct(row) };
+  }
+
   revalidateShopPaths();
-  return { ok: true };
+  return { ok: true, hardDeleted: true };
 }
 
 export async function updateShopProductImagesAction(

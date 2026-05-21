@@ -275,7 +275,7 @@ export async function fetchAdminClients(supabase: SupabaseClient) {
   const { data: shopOrdersRaw, error: shopOrdersError } = await supabase
     .from("shop_orders")
     .select(
-      "id, profile_id, status, product_name, total_price_eur, created_at",
+      "id, profile_id, status, product_name, total_price_eur, created_at, stock_reserved",
     )
     .order("created_at", { ascending: false })
     .limit(500);
