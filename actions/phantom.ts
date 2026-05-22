@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getIsAdmin } from "@/lib/auth/roles";
-import { notifyAdminsNewPhantomRequest } from "@/lib/onesignal/admin-business-notifications";
+import {
+  notifyAdminsNewPhantomRequest,
+  notifyClientPhantomAccepted,
+  notifyClientPhantomCancelled,
+} from "@/lib/onesignal/admin-business-notifications";
 import {
   fetchClientPhantomRequest,
   type PhantomRequest,
@@ -107,6 +111,12 @@ export async function updatePhantomRequestStatusAction(
   revalidatePath("/admin/history");
   revalidatePath("/dashboard");
 
+  if (status === "accepted") {
+    notifyClientPhantomAccepted(parsedId.data);
+  } else if (status === "refused" || status === "cancelled") {
+    notifyClientPhantomCancelled(parsedId.data);
+  }
+
   return { ok: true };
 }
 
@@ -204,6 +214,8 @@ export async function cancelPhantomRequestAction(
   revalidatePath("/admin/history");
   revalidatePath("/admin/reservations");
   revalidatePath("/dashboard");
+
+  notifyClientPhantomCancelled(parsedId.data);
 
   return { ok: true };
 }

@@ -10,6 +10,9 @@ import { getIsAdmin } from "@/lib/auth/roles";
 import {
   notifyAdminsNewShopOrder,
   notifyAdminsShopOrderCancelledByClient,
+  notifyClientLatestShopOrderCancelled,
+  notifyClientShopOrderStatus,
+  type ShopOrderClientStatus,
 } from "@/lib/onesignal/admin-business-notifications";
 import { createClient } from "@/lib/supabase/server";
 
@@ -325,7 +328,34 @@ export async function adminUpdateShopOrderStatusAction(
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
 
+  const clientStatus = mapToClientPushStatus(status.data);
+  if (clientStatus) {
+    notifyClientShopOrderStatus(orderId.data, clientStatus);
+  }
+
   return { ok: true };
+}
+
+function mapToClientPushStatus(
+  status:
+    | "paid"
+    | "preparing"
+    | "shipped"
+    | "completed"
+    | "refused"
+    | "cancelled",
+): ShopOrderClientStatus | null {
+  switch (status) {
+    case "paid":
+    case "preparing":
+    case "shipped":
+    case "completed":
+    case "refused":
+    case "cancelled":
+      return status;
+    default:
+      return null;
+  }
 }
 
 const profileIdSchema = z.string().uuid();
@@ -372,6 +402,8 @@ export async function adminCancelLatestShopOrderAction(
   revalidatePath("/admin/boutique");
   revalidatePath("/admin/clients");
   revalidatePath("/admin/compta");
+
+  notifyClientLatestShopOrderCancelled(profileId.data);
 
   return { ok: true };
 }

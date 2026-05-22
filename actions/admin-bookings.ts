@@ -97,6 +97,8 @@ export async function refuseBookingAction(
   revalidatePath("/dashboard");
   revalidatePath("/admin/reservations");
 
+  notifyClientBookingCancelled(parsed.data);
+
   return { ok: true };
 }
 
