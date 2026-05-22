@@ -11,14 +11,14 @@ import {
 
 export function ClientPrivateHeader() {
   const pathname = usePathname();
-  const isCarteHome = pathname === "/dashboard";
+  const isCompactHeader = pathname === "/" || pathname === "/dashboard";
   const title = getClientNavTitle(pathname);
   const subtitle = getClientNavSubtitle(pathname);
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-background/95 backdrop-blur-xl supports-backdrop-filter:bg-background/80">
       <div className="relative mx-auto w-full max-w-lg px-5 pb-0 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        {isCarteHome ? (
+        {isCompactHeader ? (
           <div className="flex justify-end pb-2">
             <ClientSignOutButton />
           </div>
