@@ -65,9 +65,9 @@ export function AccountingKpiGrid({ summary }: AccountingKpiGridProps) {
             Panier moyen boutique
           </p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-100">
-            {summary.avgShopBasket > 0
+            {summary.shopOrdersCompletedCount > 0 && summary.avgShopBasket > 0
               ? formatEur(summary.avgShopBasket)
-              : "—"}
+              : formatEur(0)}
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-card/50 p-4 shadow-inner shadow-black/20">

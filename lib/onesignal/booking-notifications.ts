@@ -130,7 +130,7 @@ export function notifyClientBookingCancelled(bookingId: string): void {
 
     const result = await sendDirectPushToUser(ctx.profileId, {
       title: "Réservation annulée",
-      body: "Votre réservation a été annulée. Vous pouvez demander un nouveau créneau.",
+      body: "Votre réservation a été annulée.",
       url: clientBookingDestinationUrl(),
     });
 

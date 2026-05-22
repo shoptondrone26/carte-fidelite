@@ -345,17 +345,18 @@ function completedShopOrders(rows: AmountRow[]): number {
   );
 }
 
-function shopSaleTransactions(rows: AmountRow[]): AmountRow[] {
-  return rows.filter(
-    (row) => row.action_type === "shop_order" && row.amount_eur > 0,
-  );
-}
-
+/**
+ * Panier moyen boutique net = CA boutique net / commandes terminées nettes.
+ * Les contre-écritures (shop_order_cancellation) annulent vente + compteur.
+ */
 function avgShopBasketEur(rows: AmountRow[]): number {
-  const sales = shopSaleTransactions(rows);
-  if (sales.length === 0) return 0;
-  const total = sumAmounts(sales);
-  return Math.round((total / sales.length) * 100) / 100;
+  const netOrders = completedShopOrders(rows);
+  if (netOrders <= 0) return 0;
+
+  const netRevenue = buildRevenueBreakdown(rows).shop;
+  if (netRevenue <= 0) return 0;
+
+  return Math.round((netRevenue / netOrders) * 100) / 100;
 }
 
 function unwrapShopOrder(
