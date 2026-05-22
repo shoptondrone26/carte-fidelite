@@ -113,13 +113,20 @@ export function getSiteUrl(): string {
 }
 
 /**
+ * Domaine de production stable utilisé en dernier recours pour les liens
+ * cliquables des notifications push (jamais une URL preview Vercel).
+ */
+const PRODUCTION_PUSH_DOMAIN = "https://carte-fidelite-shoptondrone.vercel.app";
+
+/**
  * URL stable de l’app utilisée pour les liens cliquables des notifications push.
  * Évite que les pushs ouvrent un déploiement preview Vercel.
  * Ordre de priorité :
  *  1. NEXT_PUBLIC_SITE_URL (explicite, prod)
  *  2. VERCEL_PROJECT_PRODUCTION_URL (hostname stable Vercel prod)
- *  3. VERCEL_URL (deploy courant — utile en dev/preview)
- *  4. localhost
+ *  3. VERCEL_ENV === "production" → domaine prod hardcodé (filet de sécurité)
+ *  4. VERCEL_URL (deploy courant — utile en dev/preview)
+ *  5. localhost
  */
 export function getPushTargetSiteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -128,6 +135,10 @@ export function getPushTargetSiteUrl(): string {
   const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (prodHost) {
     return `https://${prodHost.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  if (process.env.VERCEL_ENV === "production") {
+    return PRODUCTION_PUSH_DOMAIN;
   }
 
   const vercelHost = process.env.VERCEL_URL?.trim();

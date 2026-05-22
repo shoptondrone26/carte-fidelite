@@ -66,7 +66,7 @@ async function loadBookingContext(bookingId: string): Promise<{
 }
 
 const adminReservationsUrl = () => buildPushLaunchUrl("/admin/reservations");
-const clientDeblocageUrl = () => buildPushLaunchUrl("/deblocage");
+const clientBookingDestinationUrl = () => buildPushLaunchUrl("/dashboard");
 
 /** Nouvelle demande pending → tous les admins. */
 export function notifyAdminsNewPendingBooking(input: {
@@ -113,7 +113,7 @@ export function notifyClientBookingAccepted(bookingId: string): void {
     const result = await sendDirectPushToUser(ctx.profileId, {
       title: "Réservation acceptée",
       body: "Votre créneau a été confirmé par ShopTonDrone.",
-      url: clientDeblocageUrl(),
+      url: clientBookingDestinationUrl(),
     });
 
     if (!result.ok && !result.skipped) {
@@ -131,7 +131,7 @@ export function notifyClientBookingCancelled(bookingId: string): void {
     const result = await sendDirectPushToUser(ctx.profileId, {
       title: "Réservation annulée",
       body: "Votre réservation a été annulée. Vous pouvez demander un nouveau créneau.",
-      url: clientDeblocageUrl(),
+      url: clientBookingDestinationUrl(),
     });
 
     if (!result.ok && !result.skipped) {
