@@ -4,6 +4,7 @@ import {
   shopPaymentMethodLabelFr,
   type ShopPaymentMethod,
 } from "@/lib/boutique/payment";
+import { filterChronopostTrackableOrders } from "@/lib/boutique/tracking";
 
 export type ShopDeliveryMethod = "pickup" | "chronopost_24h";
 
@@ -331,6 +332,34 @@ export async function fetchClientActiveShopOrders(
 ): Promise<ShopOrder[]> {
   const orders = await fetchClientShopOrders(supabase, profileId);
   return orders.filter(isActiveShopOrder);
+}
+
+/** Commandes Chronopost avec numéro de suivi (page Suivi colis). */
+export async function fetchClientTrackableShopOrders(
+  supabase: SupabaseClient,
+  profileId: string,
+): Promise<ShopOrder[]> {
+  await refreshShopOrders(supabase);
+
+  const { data, error } = await supabase
+    .from("shop_orders")
+    .select(ORDER_WITH_ITEMS_SELECT)
+    .eq("profile_id", profileId)
+    .eq("delivery_method", "chronopost_24h")
+    .not("tracking_number", "is", null)
+    .in("status", ["paid", "preparing", "shipped", "completed"])
+    .order("shipped_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("fetchClientTrackableShopOrders", error.message);
+    return [];
+  }
+
+  return filterChronopostTrackableOrders(
+    ((data as ShopOrderRow[] | null) ?? []).map(mapShopOrder),
+  );
 }
 
 export async function fetchAdminShopOrders(

@@ -1,4 +1,4 @@
-import { Settings, ShoppingBag, Wallet, type LucideIcon } from "lucide-react";
+import { PackageSearch, Settings, ShoppingBag, Wallet, type LucideIcon } from "lucide-react";
 
 export type ClientNavItem = {
   href: string;
@@ -28,6 +28,14 @@ export const CLIENT_NAV_ITEMS: readonly ClientNavItem[] = [
     matchPrefixes: ["/boutique"],
   },
   {
+    href: "/suivi-colis",
+    label: "Suivi colis",
+    shortLabel: "Suivi colis",
+    description: "Suivi Chronopost de vos commandes",
+    icon: PackageSearch,
+    matchPrefixes: ["/suivi-colis"],
+  },
+  {
     href: "/reglages",
     label: "Réglages",
     shortLabel: "Réglages",
@@ -41,6 +49,7 @@ export const CLIENT_PRIVATE_PATH_PREFIXES = [
   "/dashboard",
   "/deblocage",
   "/boutique",
+  "/suivi-colis",
   "/reglages",
 ] as const;
 
@@ -64,6 +73,9 @@ export function getClientNavTitle(pathname: string): string {
   if (pathname.startsWith("/boutique")) {
     return "Boutique";
   }
+  if (pathname.startsWith("/suivi-colis")) {
+    return "Suivi colis";
+  }
   const item = CLIENT_NAV_ITEMS.find((entry) =>
     isClientNavActive(entry, pathname),
   );
@@ -76,6 +88,9 @@ export function getClientNavSubtitle(pathname: string): string {
   }
   if (pathname.startsWith("/boutique")) {
     return "Produits et commandes membres";
+  }
+  if (pathname.startsWith("/suivi-colis")) {
+    return "Suivi Chronopost de vos commandes";
   }
   const item = CLIENT_NAV_ITEMS.find((entry) =>
     isClientNavActive(entry, pathname),

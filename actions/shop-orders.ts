@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ShopDeliveryMethod, ShopOrder } from "@/lib/boutique/orders";
-import { fetchClientActiveShopOrders } from "@/lib/boutique/orders";
+import {
+  fetchClientActiveShopOrders,
+  fetchClientTrackableShopOrders,
+} from "@/lib/boutique/orders";
 import type { ShopPaymentMethod } from "@/lib/boutique/payment";
 import { getIsAdmin } from "@/lib/auth/roles";
 import {
@@ -325,6 +328,7 @@ export async function adminUpdateShopOrderStatusAction(
   }
 
   revalidatePath("/boutique");
+  revalidatePath("/suivi-colis");
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
 
@@ -415,4 +419,15 @@ export async function fetchClientActiveShopOrdersAction(): Promise<ShopOrder[]> 
   } = await supabase.auth.getUser();
   if (!user) return [];
   return fetchClientActiveShopOrders(supabase, user.id);
+}
+
+export async function fetchClientTrackableShopOrdersAction(): Promise<
+  ShopOrder[]
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  return fetchClientTrackableShopOrders(supabase, user.id);
 }
