@@ -59,91 +59,105 @@ function ensureSendReady(): PushTestResult | null {
 
 /** Test manuel — notification à l’utilisateur connecté (admin ou client). */
 export async function sendTestPushToSelfAction(): Promise<PushTestResult> {
-  const ready = ensureSendReady();
-  if (ready) return ready;
+  try {
+    const ready = ensureSendReady();
+    if (ready) return ready;
 
-  const auth = await assertAuthenticated();
-  if (!auth.ok) return { ok: false, error: auth.error };
+    const auth = await assertAuthenticated();
+    if (!auth.ok) return { ok: false, error: auth.error };
 
-  if (isPushTestRateLimited(auth.user.id)) {
-    return {
-      ok: false,
-      error: "Attendez une minute avant un nouvel envoi test.",
-    };
-  }
-
-  const isAdmin = await getIsAdmin(auth.supabase, auth.user.id);
-  const result = await sendDirectPushToUser(auth.user.id, {
-    title: isAdmin ? "Test admin · Carte" : "Test · Carte",
-    body: isAdmin
-      ? "Notification test depuis les paramètres admin."
-      : "Notification test depuis votre espace membre.",
-    url: isAdmin ? "/admin/settings" : "/dashboard",
-  });
-
-  if (!result.ok) {
-    if (result.skipped) {
+    if (isPushTestRateLimited(auth.user.id)) {
       return {
         ok: false,
-        error:
-          "Notifications désactivées sur votre profil. Activez-les ci-dessous puis réessayez.",
+        error: "Attendez une minute avant un nouvel envoi test.",
       };
     }
-    const detail = formatDebugForAdmin(result.debug);
-    const baseError = result.error ?? "Échec envoi OneSignal.";
-    return {
-      ok: false,
-      error: detail ? `${baseError}\n${detail}` : baseError,
-      debug: result.debug,
-    };
-  }
 
-  markPushTestSent(auth.user.id);
-  return { ok: true, detail: "Notification envoyée." };
+    const isAdmin = await getIsAdmin(auth.supabase, auth.user.id);
+    const result = await sendDirectPushToUser(auth.user.id, {
+      title: isAdmin ? "Test admin · Carte" : "Test · Carte",
+      body: isAdmin
+        ? "Notification test depuis les paramètres admin."
+        : "Notification test depuis votre espace membre.",
+      url: isAdmin ? "/admin/settings" : "/dashboard",
+    });
+
+    if (!result.ok) {
+      if (result.skipped) {
+        return {
+          ok: false,
+          error:
+            "Notifications désactivées sur votre profil. Activez-les ci-dessous puis réessayez.",
+        };
+      }
+      const detail = formatDebugForAdmin(result.debug);
+      const baseError = result.error ?? "Échec envoi OneSignal.";
+      return {
+        ok: false,
+        error: detail ? `${baseError}\n${detail}` : baseError,
+        debug: result.debug,
+      };
+    }
+
+    markPushTestSent(auth.user.id);
+    return { ok: true, detail: "Notification envoyée." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // eslint-disable-next-line no-console -- diagnostic push
+    console.error("[push-test:self:throw]", msg);
+    return { ok: false, error: `Exception push test : ${msg}` };
+  }
 }
 
 /** Test manuel admin — diffusion à tous les comptes admin. */
 export async function sendTestPushToAllAdminsAction(): Promise<PushTestResult> {
-  const ready = ensureSendReady();
-  if (ready) return ready;
+  try {
+    const ready = ensureSendReady();
+    if (ready) return ready;
 
-  const auth = await assertAuthenticated();
-  if (!auth.ok) return { ok: false, error: auth.error };
+    const auth = await assertAuthenticated();
+    if (!auth.ok) return { ok: false, error: auth.error };
 
-  if (!(await getIsAdmin(auth.supabase, auth.user.id))) {
-    return { ok: false, error: "Accès admin requis." };
-  }
+    if (!(await getIsAdmin(auth.supabase, auth.user.id))) {
+      return { ok: false, error: "Accès admin requis." };
+    }
 
-  if (isPushTestRateLimited(`admins:${auth.user.id}`)) {
+    if (isPushTestRateLimited(`admins:${auth.user.id}`)) {
+      return {
+        ok: false,
+        error: "Attendez une minute avant une nouvelle diffusion test.",
+      };
+    }
+
+    const batch = await sendDirectPushToAdmins(
+      {
+        title: "Test admin · Carte",
+        body: "Diffusion test à l’équipe admin.",
+        url: "/admin/settings",
+      },
+      { excludeUserId: undefined },
+    );
+
+    markPushTestSent(`admins:${auth.user.id}`);
+
+    if (batch.sent === 0) {
+      return {
+        ok: false,
+        error:
+          batch.errors[0] ??
+          "Aucun admin n’a reçu la notification (push désactivé ou non abonné).",
+      };
+    }
+
+    revalidatePath("/admin/settings");
     return {
-      ok: false,
-      error: "Attendez une minute avant une nouvelle diffusion test.",
+      ok: true,
+      detail: `${batch.sent} admin(s) notifié(s)${batch.failed ? `, ${batch.failed} échec(s)` : ""}.`,
     };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // eslint-disable-next-line no-console -- diagnostic push
+    console.error("[push-test:admins:throw]", msg);
+    return { ok: false, error: `Exception diffusion admin : ${msg}` };
   }
-
-  const batch = await sendDirectPushToAdmins(
-    {
-      title: "Test admin · Carte",
-      body: "Diffusion test à l’équipe admin.",
-      url: "/admin/settings",
-    },
-    { excludeUserId: undefined },
-  );
-
-  markPushTestSent(`admins:${auth.user.id}`);
-
-  if (batch.sent === 0) {
-    return {
-      ok: false,
-      error:
-        batch.errors[0] ??
-        "Aucun admin n’a reçu la notification (push désactivé ou non abonné).",
-    };
-  }
-
-  revalidatePath("/admin/settings");
-  return {
-    ok: true,
-    detail: `${batch.sent} admin(s) notifié(s)${batch.failed ? `, ${batch.failed} échec(s)` : ""}.`,
-  };
 }

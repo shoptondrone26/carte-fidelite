@@ -283,8 +283,8 @@ const SHOP_ORDER_PUSH_TEMPLATES: Record<ShopOrderClientStatus, ShopOrderPushTemp
   shipped: {
     title: "Commande expédiée",
     body: (tracking) =>
-      tracking?.trim()
-        ? "Votre commande a été expédiée. Suivez votre colis Chronopost."
+      tracking
+        ? `Votre commande est en route. Suivi Chronopost : ${tracking}`
         : "Votre commande est en route via Chronopost.",
   },
   completed: {
@@ -317,11 +317,7 @@ async function dispatchShopOrderStatusPush(
   const result = await sendDirectPushToUser(order.profile_id, {
     title: template.title,
     body: template.body(order.tracking_number),
-    url: buildPushLaunchUrl(
-      status === "shipped" && order.tracking_number?.trim()
-        ? "/suivi-colis"
-        : "/boutique",
-    ),
+    url: buildPushLaunchUrl("/boutique"),
   });
 
   if (!result.ok && !result.skipped) {
