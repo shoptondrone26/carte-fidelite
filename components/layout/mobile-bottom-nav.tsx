@@ -4,7 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { MOBILE_NAV_ITEMS } from "@/lib/constants/navigation";
+import type { NavItem } from "@/types";
 import { cn } from "@/lib/utils";
+
+function isMobileNavActive(item: NavItem, pathname: string): boolean {
+  if (item.href === "/") {
+    return pathname === "/";
+  }
+  if (item.href === "/dashboard") {
+    return (
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname.startsWith("/deblocage")
+    );
+  }
+  return pathname.startsWith(item.href);
+}
 
 export function MobileBottomNav() {
   const pathname = usePathname();
@@ -22,16 +37,13 @@ export function MobileBottomNav() {
         aria-hidden
         className="premium-ambient pointer-events-none absolute inset-x-8 bottom-1 h-12 rounded-full bg-amber-300/12 blur-3xl"
       />
-      <ul className="mx-auto flex max-w-md items-stretch justify-around gap-1.5 rounded-[2rem] border border-white/4 bg-white/2.5 px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <ul className="mx-auto flex w-full max-w-xs items-stretch justify-center gap-4 rounded-[2rem] border border-white/4 bg-white/2.5 px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
         {MOBILE_NAV_ITEMS.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const active = isMobileNavActive(item, pathname);
           const Icon = item.icon;
 
           return (
-            <li key={item.href} className="flex-1">
+            <li key={item.href} className="min-w-[7.25rem] flex-1">
               <Link
                 href={item.href}
                 className={cn(
