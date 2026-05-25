@@ -55,6 +55,10 @@ export const ADMIN_BOUTIQUE_SYNC: AdminRealtimeSubscription[] = [
   { table: "shop_orders", event: "*" },
 ];
 
+export const ADMIN_TRACKING_SYNC: AdminRealtimeSubscription[] = [
+  { table: "shop_orders", event: "*" },
+];
+
 export const ADMIN_ANALYSE_SYNC: AdminRealtimeSubscription[] = [
   { table: "analytics_events", event: "INSERT" },
   { table: "bookings", event: "*" },

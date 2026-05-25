@@ -1,9 +1,9 @@
 import {
-  BarChart3,
   Calculator,
   CalendarDays,
   History,
   LayoutDashboard,
+  PackageSearch,
   Settings,
   ShoppingBag,
   Users,
@@ -35,13 +35,6 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     icon: Users,
   },
   {
-    href: "/admin/analyse",
-    label: "Analyse",
-    shortLabel: "Analyse",
-    description: "Usage, rétention et privilèges",
-    icon: BarChart3,
-  },
-  {
     href: "/admin/compta",
     label: "Comptabilité",
     shortLabel: "Compta",
@@ -54,6 +47,13 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     shortLabel: "Boutique",
     description: "Catalogue produits",
     icon: ShoppingBag,
+  },
+  {
+    href: "/admin/suivi-colis",
+    label: "Suivi colis",
+    shortLabel: "Colis",
+    description: "Expéditions Chronopost",
+    icon: PackageSearch,
   },
   {
     href: "/admin/history",

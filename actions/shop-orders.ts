@@ -331,6 +331,7 @@ export async function adminUpdateShopOrderStatusAction(
   revalidatePath("/suivi-colis");
   revalidatePath("/admin");
   revalidatePath("/admin/boutique");
+  revalidatePath("/admin/suivi-colis");
 
   const clientStatus = mapToClientPushStatus(status.data);
   if (clientStatus) {

@@ -403,6 +403,57 @@ export async function fetchAdminShopOrders(
   }));
 }
 
+/** Commandes Chronopost avec numéro de suivi — vue admin (toutes commandes, avec profils). */
+export async function fetchAdminTrackableShopOrders(
+  supabase: SupabaseClient,
+): Promise<{ active: AdminShopOrder[]; history: AdminShopOrder[] }> {
+  await refreshShopOrders(supabase);
+
+  const { data, error } = await supabase
+    .from("shop_orders")
+    .select(ORDER_WITH_ITEMS_SELECT)
+    .eq("delivery_method", "chronopost_24h")
+    .not("tracking_number", "is", null)
+    .order("shipped_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error("fetchAdminTrackableShopOrders", error.message);
+    return { active: [], history: [] };
+  }
+
+  const rows = ((data as ShopOrderRow[] | null) ?? []).map(mapShopOrder);
+  const profileIds = [...new Set(rows.map((row) => row.profile_id))];
+  const profilesById = new Map<string, ProfileRow>();
+
+  if (profileIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, snap")
+      .in("id", profileIds);
+
+    if (profileError) {
+      console.error("fetchAdminTrackableShopOrders profiles", profileError.message);
+    } else {
+      for (const profile of (profiles as ProfileRow[] | null) ?? []) {
+        profilesById.set(profile.id, profile);
+      }
+    }
+  }
+
+  const all = rows.map((order) => ({
+    ...order,
+    profiles: profilesById.get(order.profile_id) ?? null,
+  }));
+
+  const activeStatuses: ShopOrderStatus[] = ["paid", "preparing", "shipped"];
+  const active = all.filter((o) => activeStatuses.includes(o.status));
+  const history = all.filter((o) => !activeStatuses.includes(o.status));
+
+  return { active, history };
+}
+
 export function shopOrdersChannelName(userId: string): string {
   return `shop-orders:${userId}`;
 }
