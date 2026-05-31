@@ -97,10 +97,12 @@ export default async function HomePage() {
               <br />
               Réservation prioritaire.
               <br />
-              <span className="text-amber-200">Expérience premium.</span>
+              <span className="text-amber-200">Club membre.</span>
             </h1>
             <p className="max-w-[28ch] text-sm leading-relaxed text-zinc-400">
-              Une expérience pensée pour les membres. Sobre, rapide, exclusive.
+              Un espace privé réservé aux membres ShopTonDrone.
+              <br />
+              Réservez, commandez et suivez vos services depuis un seul espace.
             </p>
           </div>
 
