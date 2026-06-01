@@ -87,11 +87,21 @@ export default async function HomePage() {
           )}
         </header>
 
-        <section className="space-y-7 pt-6">
+        <section className="space-y-6 pt-2">
+          <div className="flex justify-center px-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/shoptondrone-brand-hero.png"
+              alt="ShopTonDrone Privé"
+              width={1024}
+              height={1024}
+              decoding="async"
+              fetchPriority="high"
+              className="mx-auto h-auto w-full max-w-[min(100%,18.5rem)] object-contain sm:max-w-[24rem] md:max-w-[28rem]"
+            />
+          </div>
+
           <div className="space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-amber-200/80">
-              Club privé · Accès limité
-            </p>
             <h1 className="text-balance text-[2.65rem] font-semibold leading-[1.02] tracking-tighter text-white sm:text-5xl">
               Accès privé.
               <br />
